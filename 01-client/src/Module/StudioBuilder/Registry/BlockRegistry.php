@@ -935,6 +935,55 @@ final class BlockRegistry
             ]),
             allowsChildren: false,
         ));
+
+        // 38. core.nav_menu — a row or column of links the author lists by hand (a mobile toggle comes from placing it in an Offcanvas).
+        $registry->register(new DeclarativeBlockDefinition(
+            type: 'core.nav_menu',
+            version: 1,
+            label: 'Nav menu',
+            title: 'Nav menu',
+            description: 'A row or column of links',
+            category: 'layout',
+            icon: 'menu',
+            schema: FieldSchema::define([
+                ['key' => 'aria_label', 'type' => 'string', 'label' => 'Menu name (for screen readers)', 'required' => false, 'default' => 'Menu', 'max_length' => 80],
+                ['key' => 'layout', 'type' => 'enum', 'label' => 'Layout', 'required' => false, 'allowed_values' => ['horizontal', 'vertical'], 'default' => 'horizontal'],
+                ['key' => 'align', 'type' => 'enum', 'label' => 'Alignment', 'required' => false, 'allowed_values' => ['left', 'center', 'right'], 'default' => 'left'],
+                ['key' => 'style', 'type' => 'enum', 'label' => 'Link style', 'required' => false, 'allowed_values' => ['plain', 'underline', 'pill'], 'default' => 'plain'],
+                [
+                    'key'         => 'items',
+                    'type'        => 'repeater',
+                    'label'       => 'Links',
+                    'required'    => false,
+                    'default'     => [['label' => 'Home', 'url' => '/'], ['label' => 'Services', 'url' => '/services/'], ['label' => 'Contact', 'url' => '/contact/']],
+                    'max_items'   => 12,
+                    'item_schema' => FieldSchema::define([
+                        ['key' => 'label', 'type' => 'string', 'label' => 'Label', 'required' => true, 'max_length' => 80],
+                        ['key' => 'url', 'type' => 'url', 'label' => 'URL', 'required' => true, 'max_length' => 1000],
+                    ]),
+                ],
+            ]),
+            allowsChildren: false,
+        ));
+
+        // 39. core.map — an OpenStreetMap embed centred on a point (no key, no tracking cookies).
+        $registry->register(new DeclarativeBlockDefinition(
+            type: 'core.map',
+            version: 1,
+            label: 'Map',
+            title: 'Map',
+            description: 'An OpenStreetMap centred on a place',
+            category: 'content',
+            icon: 'pin',
+            schema: FieldSchema::define([
+                ['key' => 'latitude', 'type' => 'number', 'label' => 'Latitude', 'required' => true, 'default' => 50.8503, 'min' => -85, 'max' => 85],
+                ['key' => 'longitude', 'type' => 'number', 'label' => 'Longitude', 'required' => true, 'default' => 4.3517, 'min' => -180, 'max' => 180],
+                ['key' => 'zoom', 'type' => 'number', 'label' => 'Zoom (1 world, 19 street)', 'required' => false, 'default' => 13, 'min' => 1, 'max' => 19, 'integer_only' => true],
+                ['key' => 'height', 'type' => 'enum', 'label' => 'Height', 'required' => false, 'allowed_values' => ['sm', 'md', 'lg'], 'default' => 'md'],
+                ['key' => 'title', 'type' => 'string', 'label' => 'Title (for screen readers)', 'required' => false, 'default' => 'Map', 'max_length' => 120],
+            ]),
+            allowsChildren: false,
+        ));
     }
 
     /**
