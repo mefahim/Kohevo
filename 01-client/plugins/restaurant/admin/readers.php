@@ -11,6 +11,7 @@ require_once dirname(__DIR__) . '/RestaurantAPI.php';
 
 Auth::require();
 Auth::requirePerm('restaurant.manage_settings');
+ModuleGuard::require('restaurant');
 RestaurantAPI::ensureSchema();
 
 $pageTitle  = 'Card readers';
