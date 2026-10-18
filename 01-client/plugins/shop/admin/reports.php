@@ -9,6 +9,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('shop.view_reports');
+ModuleGuard::require('shop');
 
 $pageTitle  = __('shop_reports', 'Reports');
 $currentNav = 'shop-reports';
