@@ -8,6 +8,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('shop.manage_coupons');
+ModuleGuard::require('shop');
 
 $pageTitle  = __('shop_coupons', 'Coupons');
 $currentNav = 'shop-coupons';
