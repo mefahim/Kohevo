@@ -67,6 +67,26 @@ final class CommercialModuleRegistry
             'sort_order'              => 30,
         ],
         [
+            'module_key'              => 'shop',
+            'display_name'            => 'Shop',
+            'description'             => 'E-commerce storefront: products, cart, checkout and orders',
+            'plugin_slug'             => 'shop',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => ['stripe-payment'],
+            'sort_order'              => 32,
+        ],
+        [
+            'module_key'              => 'restaurant',
+            'display_name'            => 'Restaurant',
+            'description'             => 'Restaurant management suite: POS, menu, tables, online ordering',
+            'plugin_slug'             => 'restaurant',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => ['stripe-payment'],
+            'sort_order'              => 33,
+        ],
+        [
             'module_key'              => 'mcp-gateway',
             'display_name'            => 'MCP Gateway',
             'description'             => 'Model Context Protocol gateway and AI assistant hub',
@@ -128,8 +148,8 @@ final class CommercialModuleRegistry
         'stripe-payment' => [
             'slug'         => 'stripe-payment',
             'display_name' => 'Stripe Payment',
-            'description'  => 'Payment gateway infrastructure automatically enabled when Membership or Booking is selected.',
-            'required_by'  => ['membership', 'booking'],
+            'description'  => 'Payment gateway infrastructure automatically enabled when Membership, Booking, Shop or Restaurant is selected.',
+            'required_by'  => ['membership', 'booking', 'shop', 'restaurant'],
         ],
     ];
 
