@@ -14,6 +14,7 @@ require_once dirname(__DIR__) . '/StudioAPI.php';
 
 Auth::require();
 Auth::requirePerm('studio.view_reports');
+ModuleGuard::require('studio');
 
 $pageTitle  = __('studio', 'Studio');
 $currentNav = 'studio';
