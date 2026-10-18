@@ -9,6 +9,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('shop.manage_settings');
+ModuleGuard::require('shop');
 
 $pageTitle  = 'Shop Settings';
 $currentNav = 'shop';
