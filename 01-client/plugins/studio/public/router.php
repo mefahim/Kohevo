@@ -15,6 +15,7 @@ if (!defined('SLATE_ROOT')) {
     require_once dirname(__DIR__, 3) . '/config.php';
 }
 slate_public_entry('studio');
+ModuleGuard::requirePublic('studio');
 require_once SLATE_ROOT . '/includes/portal_ui.php';
 require_once __DIR__ . '/_pubui.php';
 require_once dirname(__DIR__) . '/StudioAPI.php';
