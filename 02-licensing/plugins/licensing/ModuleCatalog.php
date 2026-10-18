@@ -131,6 +131,17 @@ final class ModuleCatalog
             'sort_order'        => 36,
         ],
         [
+            'module_key'        => 'clientdesk',
+            'display_name'      => 'Client Desk',
+            'description'       => 'Freelancer client portal: onboarding, projects, quotes, invoices with Stripe payments, file delivery, support tickets.',
+            'status'            => 'available',
+            'commercial'        => true,
+            'v1_available'      => true,
+            'plugin_identifier' => 'clientdesk',
+            'dependencies'      => ['stripe-payment'],
+            'sort_order'        => 37,
+        ],
+        [
             'module_key'        => 'studio-builder',
             'display_name'      => 'Kohevo Studio',
             'description'       => 'Structured visual page, layout, and experience builder.',
