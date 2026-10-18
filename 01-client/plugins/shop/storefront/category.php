@@ -12,6 +12,7 @@ if (!file_exists($root . '/config.php')) {
     $root = $dir;
 }
 require $root . '/config.php';
+ModuleGuard::requirePublic('shop');
 
 if (!class_exists('ShopAPI') || !PluginLoader::isActive('shop')) {
     http_response_code(503);
