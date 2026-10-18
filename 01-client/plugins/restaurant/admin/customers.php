@@ -8,6 +8,7 @@ require_once SLATE_ROOT . '/includes/record_editor.php';
 
 Auth::require();
 Auth::requirePerm('restaurant.manage_customers');
+ModuleGuard::require('restaurant');
 RestaurantAPI::ensureSchema();
 
 $pageTitle  = 'Customers';
