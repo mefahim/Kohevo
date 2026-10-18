@@ -87,6 +87,16 @@ final class CommercialModuleRegistry
             'sort_order'              => 33,
         ],
         [
+            'module_key'              => 'shop-emails',
+            'display_name'            => 'Shop Emails',
+            'description'             => 'Order email notifications for Shop: customer confirmations and admin alerts',
+            'plugin_slug'             => 'shop-emails',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => [],
+            'sort_order'              => 34,
+        ],
+        [
             'module_key'              => 'mcp-gateway',
             'display_name'            => 'MCP Gateway',
             'description'             => 'Model Context Protocol gateway and AI assistant hub',
