@@ -97,6 +97,16 @@ final class CommercialModuleRegistry
             'sort_order'              => 34,
         ],
         [
+            'module_key'              => 'studio',
+            'display_name'            => 'Studio Management',
+            'description'             => 'Dance/arts studio management: classes, enrollments, families, recitals, parent portal',
+            'plugin_slug'             => 'studio',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => ['stripe-payment'],
+            'sort_order'              => 36,
+        ],
+        [
             'module_key'              => 'mcp-gateway',
             'display_name'            => 'MCP Gateway',
             'description'             => 'Model Context Protocol gateway and AI assistant hub',
