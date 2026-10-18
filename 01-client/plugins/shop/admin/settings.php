@@ -21,18 +21,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $flash = ['type' => 'error', 'msg' => 'Security check failed.'];
     } else {
-        $fields = [
-            'shop.currency'                 => mb_substr(strtoupper(trim((string)($_POST['currency'] ?? 'USD'))), 0, 3),
-            'shop.tax_rate'                 => max(0, (float)($_POST['tax_rate'] ?? 0)),
-            'shop.flat_shipping_rate'       => max(0, (float)($_POST['flat_shipping_rate'] ?? 0)),
-            'shop.free_shipping_threshold'  => max(0, (float)($_POST['free_shipping_threshold'] ?? 0)),
-            'shop.order_prefix'             => mb_substr(strtoupper(trim((string)($_POST['order_prefix'] ?? 'ORD'))), 0, 10),
-        ];
-        foreach ($fields as $key => $val) {
-            Database::setSetting($key, (string)$val);
+        $newCurrency = mb_substr(strtoupper(trim((string)($_POST['currency'] ?? 'USD'))), 0, 3);
+        $oldCurrency = strtoupper((string)(Database::setting('shop.currency') ?: 'USD'));
+        // Currency guard: changing the currency re-interprets every existing
+        // product price in the new currency (no automatic conversion). Require
+        // explicit confirmation so this cannot happen silently.
+        if ($newCurrency !== $oldCurrency && empty($_POST['confirm_currency_change'])) {
+            $flash = [
+                'type' => 'error',
+                'msg'  => "Currency change from {$oldCurrency} to {$newCurrency} needs confirmation: "
+                        . "existing product prices are NOT converted and will be charged as-is "
+                        . "in {$newCurrency}. Tick the confirmation box and save again to proceed.",
+            ];
+        } else {
+            $fields = [
+                'shop.currency'                 => $newCurrency,
+                'shop.tax_rate'                 => max(0, (float)($_POST['tax_rate'] ?? 0)),
+                'shop.flat_shipping_rate'       => max(0, (float)($_POST['flat_shipping_rate'] ?? 0)),
+                'shop.free_shipping_threshold'  => max(0, (float)($_POST['free_shipping_threshold'] ?? 0)),
+                'shop.order_prefix'             => mb_substr(strtoupper(trim((string)($_POST['order_prefix'] ?? 'ORD'))), 0, 10),
+            ];
+            foreach ($fields as $key => $val) {
+                Database::setSetting($key, (string)$val);
+            }
+            AuditLog::record('shop.settings_changed');
+            if ($newCurrency !== $oldCurrency) {
+                AuditLog::record('shop.currency_changed', ['from' => $oldCurrency, 'to' => $newCurrency]);
+            }
+            $flash = ['type' => 'success', 'msg' => 'Settings saved.'];
         }
-        AuditLog::record('shop.settings_changed');
-        $flash = ['type' => 'success', 'msg' => 'Settings saved.'];
     }
 }
 
@@ -70,6 +87,10 @@ require $root . '/admin/partials/header.php';
                 <input type="text" id="currency" name="currency" maxlength="3" style="text-transform:uppercase;"
                        value="<?= e($currency) ?>" placeholder="USD">
                 <div class="field-hint">3-letter ISO code (USD, EUR, GBP, BDT…)</div>
+                <label style="display:block;margin-top:8px;font-size:13px;">
+                    <input type="checkbox" name="confirm_currency_change" value="1">
+                    I understand changing currency does <strong>not</strong> convert existing prices
+                </label>
             </div>
             <div class="field">
                 <label class="field-label" for="order_prefix">Order Number Prefix</label>
