@@ -12,6 +12,7 @@ require_once dirname(__DIR__) . '/RestaurantAPI.php';
 
 Auth::require();
 Auth::requirePerm('restaurant.view');
+ModuleGuard::require('restaurant');
 
 $pageTitle  = 'Restaurant — Help & docs';
 $currentNav = 'restaurant-help';
