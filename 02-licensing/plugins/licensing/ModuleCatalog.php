@@ -120,6 +120,17 @@ final class ModuleCatalog
             'sort_order'        => 34,
         ],
         [
+            'module_key'        => 'studio',
+            'display_name'      => 'Studio Management',
+            'description'       => 'Dance/arts studio management: classes, enrollments, families, recitals, parent portal.',
+            'status'            => 'available',
+            'commercial'        => true,
+            'v1_available'      => true,
+            'plugin_identifier' => 'studio',
+            'dependencies'      => ['stripe-payment'],
+            'sort_order'        => 36,
+        ],
+        [
             'module_key'        => 'studio-builder',
             'display_name'      => 'Kohevo Studio',
             'description'       => 'Structured visual page, layout, and experience builder.',
