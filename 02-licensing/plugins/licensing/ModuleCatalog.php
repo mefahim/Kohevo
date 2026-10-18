@@ -109,6 +109,17 @@ final class ModuleCatalog
             'sort_order'        => 33,
         ],
         [
+            'module_key'        => 'shop-emails',
+            'display_name'      => 'Shop Emails',
+            'description'       => 'Order email notifications for Shop: customer confirmations and admin alerts.',
+            'status'            => 'available',
+            'commercial'        => true,
+            'v1_available'      => true,
+            'plugin_identifier' => 'shop-emails',
+            'dependencies'      => [],
+            'sort_order'        => 34,
+        ],
+        [
             'module_key'        => 'studio-builder',
             'display_name'      => 'Kohevo Studio',
             'description'       => 'Structured visual page, layout, and experience builder.',
