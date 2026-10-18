@@ -10,6 +10,7 @@ Auth::require();
 if (!Auth::can('shop.view_orders') && !Auth::can('shop.manage_products')) {
     Auth::requirePerm('shop.view_orders'); // triggers 403
 }
+ModuleGuard::require('shop');
 
 $pageTitle  = __('shop', 'Shop');
 $currentNav = 'shop';
