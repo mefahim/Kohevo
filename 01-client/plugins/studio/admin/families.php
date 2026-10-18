@@ -18,6 +18,7 @@ use Slate\Tenancy\TenantContext;
 
 Auth::require();
 Auth::requirePerm('studio.manage_families');
+ModuleGuard::require('studio');
 
 $pageTitle  = __('studio_families', 'Studio · Families');
 $currentNav = 'studio_families';
