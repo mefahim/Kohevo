@@ -17,6 +17,7 @@ require_once __DIR__ . '/_ui.php';
 
 Auth::require();
 Auth::requirePerm('studio.view_reports');
+ModuleGuard::require('studio');
 
 $pageTitle  = __('studio_reports', 'Studio · Reports');
 $currentNav = 'studio_reports';
