@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/RestaurantAPI.php';
 
 Auth::require();
 Auth::requirePerm('restaurant.pos');
+ModuleGuard::require('restaurant');
 RestaurantAPI::ensureSchema();
 
 $tid = current_tenant_id();
