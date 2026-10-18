@@ -6,6 +6,14 @@
     "author": "Your Name",
     "author_url": "https://example.com",
     "requires_core": ">=1.0.0",
+    "commercial_module": {
+        "entitlement": "shop",
+        "label": "Shop",
+        "description": "E-commerce storefront: products, cart, checkout and orders",
+        "requires_infrastructure": [
+            "stripe-payment"
+        ]
+    },
     "permissions": [
         {
             "key": "shop.view_orders",
