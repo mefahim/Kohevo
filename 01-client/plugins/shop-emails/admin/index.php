@@ -20,6 +20,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('shop_emails.manage');
+ModuleGuard::require('shop-emails');
 
 require_once dirname(__DIR__) . '/ShopEmails.php';
 
