@@ -21,6 +21,7 @@ require_once __DIR__ . '/_ui.php';
 
 Auth::require();
 Auth::requirePerm('studio.manage_classes');
+ModuleGuard::require('studio');
 
 $pageTitle  = __('studio_fees', 'Studio · Fees');
 $currentNav = 'studio_fees';
