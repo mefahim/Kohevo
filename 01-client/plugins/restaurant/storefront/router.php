@@ -14,6 +14,7 @@
  *   /order/api        → api.php     (JSON cart ops; redirects as no-JS fallback)
  */
 if (!defined('SLATE_ROOT')) { http_response_code(404); exit; }
+ModuleGuard::requirePublic('restaurant');
 
 $path = trim((string)($_GET['_route_path'] ?? ''), '/');
 if (strpos($path, '..') !== false || strpos($path, '\\') !== false) {
