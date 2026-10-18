@@ -107,6 +107,16 @@ final class CommercialModuleRegistry
             'sort_order'              => 36,
         ],
         [
+            'module_key'              => 'clientdesk',
+            'display_name'            => 'Client Desk',
+            'description'             => 'Freelancer client portal: onboarding, projects, quotes, invoices with Stripe payments, file delivery, support tickets',
+            'plugin_slug'             => 'clientdesk',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => ['stripe-payment'],
+            'sort_order'              => 37,
+        ],
+        [
             'module_key'              => 'mcp-gateway',
             'display_name'            => 'MCP Gateway',
             'description'             => 'Model Context Protocol gateway and AI assistant hub',
