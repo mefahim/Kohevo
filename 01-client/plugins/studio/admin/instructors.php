@@ -16,6 +16,7 @@ use Slate\Tenancy\TenantContext;
 
 Auth::require();
 Auth::requirePerm('studio.manage_classes');
+ModuleGuard::require('studio');
 if (class_exists('Media')) { Media::enqueuePicker(); }
 
 $pageTitle  = __('studio_instructors', 'Studio · Instructors');
