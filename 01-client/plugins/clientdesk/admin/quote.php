@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — admin: quote detail / view.
  * Branded, print-ready quote document. Send, or (when approved) convert
@@ -8,6 +9,7 @@
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::require();
 Auth::requirePerm('clientdesk.manage_quotes');
+ModuleGuard::require('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 require_once dirname(__DIR__) . '/includes/ui.php';

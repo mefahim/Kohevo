@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — admin: single project (v2, tabbed).
  * Tabs: Overview (progress, stepper, milestones, questionnaire, activity),
@@ -9,6 +10,7 @@
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::require();
 Auth::requirePerm('clientdesk.view');
+ModuleGuard::require('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 require_once dirname(__DIR__) . '/includes/ui.php';

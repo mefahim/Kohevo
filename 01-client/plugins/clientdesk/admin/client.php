@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — admin: single client.
  * Edit client, create projects, link/create the portal customer account
@@ -8,6 +9,7 @@
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::require();
 Auth::requirePerm('clientdesk.view');
+ModuleGuard::require('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 

@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — portal landing page (/portal).
  *

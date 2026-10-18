@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — public portal entry.
  *
@@ -15,6 +16,7 @@ if (!defined('SLATE_ROOT')) {
     require_once dirname(__DIR__, 3) . '/config.php';
 }
 slate_public_entry('clientdesk');
+ModuleGuard::requirePublic('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 

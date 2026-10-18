@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — admin: all projects + manual create.
  * Managers see every project and can create one here (picking the client);
@@ -8,6 +9,7 @@
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::require();
 Auth::requirePerm('clientdesk.view');
+ModuleGuard::require('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 

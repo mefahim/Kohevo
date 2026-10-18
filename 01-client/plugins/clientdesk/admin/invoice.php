@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — admin: invoice detail / view.
  * Renders a branded, print-ready invoice document. Print/PDF outputs the
@@ -8,6 +9,7 @@
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::require();
 Auth::requirePerm('clientdesk.manage_invoices');
+ModuleGuard::require('clientdesk');
 
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
 require_once dirname(__DIR__) . '/includes/ui.php';

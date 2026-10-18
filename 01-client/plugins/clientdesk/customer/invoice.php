@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — customer-facing invoice view.
  * The signed-in client opens their own invoice as a branded, printable
@@ -9,6 +10,7 @@
 
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::requireCustomer();
+ModuleGuard::require('clientdesk');
 
 require_once SLATE_ROOT . '/includes/portal_shell.php';
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';

@@ -1,4 +1,5 @@
 <?php
+use Slate\Services\Licensing\ModuleGuard;
 /**
  * Client Desk — customer dashboard (v2).
  * Progress with rings + stepper, onboarding questionnaire, quotes to
@@ -8,6 +9,7 @@
 
 require_once dirname(__DIR__, 3) . '/config.php';
 Auth::requireCustomer();
+ModuleGuard::require('clientdesk');
 
 require_once SLATE_ROOT . '/includes/portal_shell.php';
 require_once dirname(__DIR__) . '/ClientDeskAPI.php';
