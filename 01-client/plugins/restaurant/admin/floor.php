@@ -12,6 +12,7 @@ require_once SLATE_ROOT . '/includes/record_editor.php';
 
 Auth::require();
 Auth::requirePerm('restaurant.manage_floor');
+ModuleGuard::require('restaurant');
 RestaurantAPI::ensureSchema();
 
 $pageTitle  = 'Floor & tables';
