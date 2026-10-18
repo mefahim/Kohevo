@@ -14,6 +14,7 @@ require_once __DIR__ . '/_ui.php';
 
 Auth::require();
 Auth::requirePerm('studio.manage_classes');
+ModuleGuard::require('studio');
 
 $pageTitle  = __('studio_enrollments', 'Studio · Enrollments');
 $currentNav = 'studio_enrollments';
