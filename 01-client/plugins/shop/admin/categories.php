@@ -7,6 +7,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('shop.manage_products');
+ModuleGuard::require('shop');
 
 $pageTitle  = __('shop_categories', 'Categories');
 $currentNav = 'shop-categories';
