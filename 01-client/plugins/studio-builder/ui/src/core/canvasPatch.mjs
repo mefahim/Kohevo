@@ -247,7 +247,10 @@ function findTextHost(el, { tags, from }) {
   tags.forEach((tag) => {
     const found = el.querySelectorAll(tag);
     for (let i = 0; i < found.length; i += 1) {
-      if (found[i].textContent === from) matches.push(found[i]);
+      // A host carrying a highlight span holds markup a textContent write would erase;
+      // refuse it here and let syncLiveDOM's span-aware patch paint the edit instead.
+      const hasHighlight = found[i].querySelector && found[i].querySelector('.sb-hl');
+      if (found[i].textContent === from && !hasHighlight) matches.push(found[i]);
     }
   });
 
