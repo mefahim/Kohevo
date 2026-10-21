@@ -13,6 +13,7 @@ require_once __DIR__ . '/_nav.php';
 
 Auth::require();
 Auth::requirePerm('studio-builder.view');
+ModuleGuard::require('studio-builder');
 
 $canEdit = Auth::can('studio-builder.edit') || Auth::isSuperAdmin();
 $tenantId = current_tenant_id();
@@ -30,7 +31,7 @@ $seoOgImageUrl  = (string) (Database::setting('studio_seo_og_image_url', $tenant
 $seoRobots      = (string) (Database::setting('studio_seo_robots', $tenantId) ?: 'index,follow');
 $seoGoogleVerification = (string) (Database::setting('studio_seo_google_verify', $tenantId) ?: '');
 $seoBingVerification   = (string) (Database::setting('studio_seo_bing_verify', $tenantId) ?: '');
-$siteName       = (string) (Database::setting('site_name', $tenantId) ?: 'Rakib Hasan');
+$siteName       = (string) (Database::setting('site_name', $tenantId) ?: '');
 
 // POST handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -192,7 +193,7 @@ require SLATE_ROOT . '/admin/partials/header.php';
                 </div>
                 <div style="font-family: Arial, sans-serif;">
                     <div style="font-size: 0.82rem; color: #202124; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span><?= e(parse_url(SLATE_URL, PHP_URL_HOST) ?: 'rakibhasaan.com') ?></span>
+                        <span><?= e(parse_url(SLATE_URL, PHP_URL_HOST) ?: '') ?></span>
                         <span style="color: #5f6368;">› portfolio</span>
                     </div>
                     <div style="font-size: 1.15rem; color: #1a0dab; line-height: 1.3; font-weight: 400; margin-bottom: 4px;">
@@ -222,7 +223,7 @@ require SLATE_ROOT . '/admin/partials/header.php';
                     </div>
                     <div style="padding: 14px; background: #ffffff;">
                         <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--sb-muted); font-weight: 600; margin-bottom: 4px;">
-                            <?= e(parse_url(SLATE_URL, PHP_URL_HOST) ?: 'rakibhasaan.com') ?>
+                            <?= e(parse_url(SLATE_URL, PHP_URL_HOST) ?: '') ?>
                         </div>
                         <div style="font-weight: 700; font-size: 0.95rem; color: var(--sb-text); margin-bottom: 4px;">
                             <?= e(str_replace(['%title%', '%site_name%'], ['Portfolio', $siteName], $seoTitleFormat)) ?>

@@ -370,7 +370,7 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
         }
         if (nextProps.first_name || nextProps.last_name) {
           const name = el.querySelector('.e-name');
-          if (name) name.innerHTML = `${escapeHtml(nextProps.first_name || 'rakib')}<br>${escapeHtml(nextProps.last_name || 'hasan')}`;
+          if (name) name.innerHTML = `${escapeHtml(nextProps.first_name || '')}<br>${escapeHtml(nextProps.last_name || '')}`;
         }
         if (nextProps.role) {
           const role = el.querySelector('.e-role');

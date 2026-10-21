@@ -24,6 +24,7 @@ require_once __DIR__ . '/_nav.php';
 
 Auth::require();
 Auth::requirePerm('studio-builder.view');
+ModuleGuard::require('studio-builder');
 
 // Scripts and CSS run on every public page, so only a Studio administrator may open or change this screen.
 $isAdmin = Auth::can('studio-builder.admin') || Auth::isSuperAdmin();
