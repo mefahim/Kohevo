@@ -17,6 +17,7 @@ if (!function_exists('slate_data_row')) {
 
 Auth::require();
 Auth::requirePerm('studio-builder.view');
+ModuleGuard::require('studio-builder');
 
 $canEdit    = Auth::can('studio-builder.edit') || Auth::isSuperAdmin();
 $tenantId   = current_tenant_id();

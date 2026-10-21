@@ -24,6 +24,7 @@ use Slate\Module\StudioBuilder\Application\StudioActor;
 use Slate\Module\StudioBuilder\Runtime\StudioRuntimeFactory;
 
 Auth::require();
+ModuleGuard::require('studio-builder');
 
 $studioActor = StudioActor::fromCurrentSession();
 $pageTitle   = __('studio_content', 'Studio Content');
@@ -66,16 +67,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_sav
             $profileData = [
                 'name'          => $name,
                 'monogram'      => strtoupper(trim((string) ($_POST['monogram'] ?? '')) ?: substr($name, 0, 2)),
-                'role'          => trim((string) ($_POST['role'] ?? 'Principal Product Engineer & Architect')),
-                'status'        => trim((string) ($_POST['status'] ?? 'Available for Select Product Engagements')),
-                'hero_heading'  => trim((string) ($_POST['hero_heading'] ?? 'Designing & Engineering Category-Defining Digital Products.')),
+                'role'          => trim((string) ($_POST['role'] ?? '')),
+                'status'        => trim((string) ($_POST['status'] ?? '')),
+                'hero_heading'  => trim((string) ($_POST['hero_heading'] ?? '')),
                 'hero_subtext'  => trim((string) ($_POST['hero_subtext'] ?? '')),
-                'stat_years'    => trim((string) ($_POST['stat_years'] ?? '9+')),
-                'stat_apps'     => trim((string) ($_POST['stat_apps'] ?? '42+')),
-                'stat_val'      => trim((string) ($_POST['stat_val'] ?? '$180M+')),
-                'stat_delivery' => trim((string) ($_POST['stat_delivery'] ?? '100%')),
-                'location'      => trim((string) ($_POST['location'] ?? 'San Francisco, CA · Remote Worldwide')),
-                'email'         => trim((string) ($_POST['email'] ?? 'contact@rakibhasaan.com')),
+                'stat_years'    => trim((string) ($_POST['stat_years'] ?? '')),
+                'stat_apps'     => trim((string) ($_POST['stat_apps'] ?? '')),
+                'stat_val'      => trim((string) ($_POST['stat_val'] ?? '')),
+                'stat_delivery' => trim((string) ($_POST['stat_delivery'] ?? '')),
+                'location'      => trim((string) ($_POST['location'] ?? '')),
+                'email'         => trim((string) ($_POST['email'] ?? '')),
                 'avatar_url'    => trim((string) ($_POST['avatar_url'] ?? '')),
             ];
             Database::setSetting('studio_profile', json_encode($profileData), $tenantId);

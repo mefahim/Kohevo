@@ -13,6 +13,7 @@ require_once __DIR__ . '/_nav.php';
 
 Auth::require();
 Auth::requirePerm('studio-builder.view');
+ModuleGuard::require('studio-builder');
 
 $canEdit = Auth::can('studio-builder.edit') || Auth::isSuperAdmin();
 $tenantId = current_tenant_id();
