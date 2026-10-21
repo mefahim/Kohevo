@@ -147,6 +147,14 @@ final class RenderDocumentPreparer
 
         $result = DocumentValidator::validate($probe, $registry);
         if (!$result->isValid()) {
+            $repaired = self::withoutPatternMismatchedProps($probeBlock, $result->errors());
+            if ($repaired !== null) {
+                $probe['sections'][0]['blocks'][0] = $repaired;
+                $probeBlock = $repaired;
+                $result = DocumentValidator::validate($probe, $registry);
+            }
+        }
+        if (!$result->isValid()) {
             $codes = array_column($result->errors(), 'code');
             return self::unavailable(in_array('invalid_block_version', $codes, true) ? 'unsupported_block_version' : 'invalid_block');
         }
@@ -157,6 +165,49 @@ final class RenderDocumentPreparer
             ? self::prepareBlocks($children, $depth + 1, $registry, $seen, $count)
             : [];
 
+        return $block;
+    }
+
+    /**
+     * The one repairable validation failure: a top-level prop whose stored
+     * string no longer matches its field pattern. A pattern is a presentational
+     * constraint — the render layer re-checks every value it prints (e.g.
+     * `Html::highlighted()` ignores a non-matching colour) — so a stale value
+     * that slipped in through an import, the API or an older schema must cost
+     * the prop, never the whole block. Dropping the prop lets the normalizer
+     * substitute the field default. Returns null when any error is anything
+     * else (type, structure, style, nested props): those keep the inert
+     * `unavailable` behaviour. Read-path only, like everything in this class —
+     * the stored document is never rewritten.
+     *
+     * @param array<string, mixed> $block
+     * @param list<array<string, mixed>> $errors
+     * @return array<string, mixed>|null
+     */
+    private static function withoutPatternMismatchedProps(array $block, array $errors): ?array
+    {
+        $props = $block['props'] ?? null;
+        if (!is_array($props) || $errors === []) {
+            return null;
+        }
+        $changed = false;
+        foreach ($errors as $error) {
+            if (($error['code'] ?? '') !== 'pattern_mismatch') {
+                return null;
+            }
+            $path = (string) ($error['path'] ?? '');
+            if (preg_match('~^\$\.sections\[0\]\.blocks\[0\]\.props\.([A-Za-z0-9_]+)$~', $path, $m) !== 1) {
+                return null;
+            }
+            if (array_key_exists($m[1], $props)) {
+                unset($props[$m[1]]);
+                $changed = true;
+            }
+        }
+        if (!$changed) {
+            return null;
+        }
+        $block['props'] = $props;
         return $block;
     }
 
