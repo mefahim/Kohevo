@@ -101,8 +101,12 @@ export const isServerRenderedType = (type) => {
 };
 
 /**
- * Types whose heading can carry a highlighted word: the server wraps it in a span, which the text patch
- * (textContent) would erase, so while a highlight is set any prop change repaints from the server.
+ * Types whose heading can carry a highlighted word: the server wraps the first occurrence
+ * in a span.sb-hl, which a plain textContent write would erase. While BOTH states carry a
+ * highlight, patchHighlightedHeading rewrites the text around the span instead, and the
+ * generic title write is kept away from the element. A highlight that appears or
+ * disappears falls through to the generic write on purpose: plain text is exactly what
+ * the server renders for those states. The repaint still confirms everything.
  */
 const HIGHLIGHT_TYPES = new Set(['core.heading', 'core.hero']);
 
@@ -114,7 +118,17 @@ const HIGHLIGHT_TYPES = new Set(['core.heading', 'core.hero']);
  * patch can touch is located by an exact class and written with textContent,
  * setAttribute or a class swap from a known set.
  */
-const LIVE_PATCH_TYPES = new Set(['core.quote', 'core.link', 'core.list', 'core.card', 'core.table', 'core.countdown', 'core.divider', 'core.spacer', 'core.icon']);
+const LIVE_PATCH_TYPES = new Set(['core.quote', 'core.link', 'core.list', 'core.card', 'core.table', 'core.countdown', 'core.divider', 'core.spacer', 'core.icon', 'core.nav_menu', 'core.map']);
+
+/**
+ * Module and theme types that reach the generic patchers (they are server-rendered by
+ * the prefix rule, not by the set above) but carry a few author-text props the generic
+ * patchers cannot know — a catalog's call-to-action label, a payment link's validity
+ * note, a search box's placeholder. patchModuleBlock covers exactly those props; the
+ * generic flow still runs afterwards for everything else (alignment, visibility, the
+ * heading the generic patcher already finds).
+ */
+const LIVE_MODULE_PATCH_TYPES = new Set(['booking.services', 'membership.plans', 'forms.form_card', 'payment.link', 'theme.search_box']);
 
 /** The per-device style overrides (`responsive.tablet|mobile.style`): @media rules written only by the server. */
 function deviceStyles(block) {
@@ -362,7 +376,205 @@ function patchServerRenderedBlock(el, type, prevProps, nextProps) {
     return n;
   }
 
+  if (type === 'core.nav_menu') {
+    const nav = el.querySelector('.sb-nav');
+    if (nextProps.layout !== prevProps.layout) {
+      n += swapClassFromSet(nav, ['sb-nav--horizontal', 'sb-nav--vertical'], enumClass('sb-nav--', ['horizontal', 'vertical'], nextProps.layout, 'horizontal'));
+    }
+    if (nextProps.align !== prevProps.align) {
+      n += swapClassFromSet(nav, ['sb-nav--left', 'sb-nav--center', 'sb-nav--right'], enumClass('sb-nav--', ['left', 'center', 'right'], nextProps.align, 'left'));
+    }
+    if (nextProps.style !== prevProps.style) {
+      n += swapClassFromSet(nav, ['sb-nav--plain', 'sb-nav--underline', 'sb-nav--pill'], enumClass('sb-nav--', ['plain', 'underline', 'pill'], nextProps.style, 'plain'));
+    }
+    if (nextProps.aria_label !== prevProps.aria_label && nav) {
+      const name = typeof nextProps.aria_label === 'string' ? nextProps.aria_label.trim() : '';
+      if (name === '') {
+        if (nav.getAttribute('aria-label') !== null) { nav.removeAttribute('aria-label'); n += 1; }
+      } else {
+        setAttr(nav, 'aria-label', name);
+      }
+    }
+    // The block's own links render only while no site menu is bound; a bound menu's
+    // items come from the menu store, so props.items edits must not touch them.
+    const menuBound = typeof nextProps.menu === 'string' && nextProps.menu.trim() !== '';
+    if (!menuBound && Array.isArray(nextProps.items)) {
+      const links = nextProps.items.filter((item) => isPlainObject(item) && typeof item.label === 'string' && item.label.trim() !== '' && typeof item.url === 'string' && item.url.trim() !== '');
+      const rows = Array.from(el.querySelectorAll('.sb-nav__link') || []);
+      if (rows.length === links.length) {
+        links.forEach((item, i) => {
+          setText(rows[i], item.label);
+          setAttr(rows[i], 'href', item.url);
+        });
+      }
+    }
+    return n;
+  }
+
+  if (type === 'core.map') {
+    if (nextProps.height !== prevProps.height) {
+      n += swapClassFromSet(el.querySelector('.sb-map'), ['sb-map--sm', 'sb-map--md', 'sb-map--lg'], enumClass('sb-map--', ['sm', 'md', 'lg'], nextProps.height, 'md'));
+    }
+    const frame = el.querySelector('.sb-map iframe');
+    if (frame && (nextProps.latitude !== prevProps.latitude || nextProps.longitude !== prevProps.longitude || nextProps.zoom !== prevProps.zoom)) {
+      const src = mapEmbedUrl(nextProps);
+      if (src) setAttr(frame, 'src', src);
+    }
+    if (frame && nextProps.title !== prevProps.title) {
+      const title = typeof nextProps.title === 'string' ? nextProps.title.trim() : '';
+      setAttr(frame, 'title', title !== '' ? title : 'Map');
+    }
+    return n;
+  }
+
   return 0;
+}
+
+/**
+ * The OpenStreetMap embed URL MapRenderer builds for a point: the visible box is about
+ * two tiles wide at the chosen zoom, centred on the point, every number at 5 decimals.
+ * Null when the point is not a valid coordinate (the block renders nothing then, and
+ * the repaint owns it).
+ */
+function mapEmbedUrl(props) {
+  const isNum = (v) => (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)));
+  if (!isNum(props.latitude) || !isNum(props.longitude)) return null;
+  const lat = Number(props.latitude);
+  const lon = Number(props.longitude);
+  if (lat < -85 || lat > 85 || lon < -180 || lon > 180) return null;
+  let zoom = Math.trunc(Number(props.zoom ?? 13));
+  if (!Number.isFinite(zoom)) zoom = 13;
+  zoom = Math.max(1, Math.min(19, zoom));
+  const lonSpan = (360 / 2 ** zoom) * 2;
+  const latSpan = lonSpan * 0.55;
+  const n = (v) => v.toFixed(5);
+  const bbox = `${n(Math.max(-180, lon - lonSpan / 2))},${n(Math.max(-85, lat - latSpan / 2))},${n(Math.min(180, lon + lonSpan / 2))},${n(Math.min(85, lat + latSpan / 2))}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${n(lat)},${n(lon)}`;
+}
+
+const STRIPE_LINK_RE = /^(?:https:\/\/(?:buy|checkout|donate|billing)\.stripe\.com\/[A-Za-z0-9_\-/.?=&%#+:~]{1,500})?$/;
+
+/**
+ * The few author-text props of module/theme blocks the generic patchers cannot know.
+ * Everything data-driven (the rows themselves, prices, the bound entries) stays with the
+ * server repaint: this only writes labels and notes whose exact element and text the
+ * PHP renderers fix. Empty-value defaults mirror the renderers' English fallbacks.
+ */
+function patchModuleBlock(el, type, prevProps, nextProps) {
+  let n = 0;
+  const setText = (target, value) => {
+    if (target && typeof value === 'string' && target.textContent !== value) {
+      target.textContent = value;
+      n += 1;
+    }
+  };
+  const textOr = (v, fallback) => (typeof v === 'string' && v !== '' ? v : fallback);
+
+  if (type === 'booking.services' || type === 'membership.plans') {
+    if (nextProps.cta_label !== prevProps.cta_label) {
+      setText(el.querySelector('.sb-button-row a'), textOr(nextProps.cta_label, type === 'booking.services' ? 'Book now' : 'Join now'));
+    }
+    return n;
+  }
+
+  if (type === 'forms.form_card') {
+    if (nextProps.button_label !== prevProps.button_label) {
+      setText(el.querySelector('.sb-button-row a'), textOr(nextProps.button_label, 'Open form'));
+    }
+    return n;
+  }
+
+  if (type === 'payment.link') {
+    if (nextProps.url !== prevProps.url) {
+      const ok = typeof nextProps.url === 'string' && nextProps.url !== '' && STRIPE_LINK_RE.test(nextProps.url);
+      setText(el.querySelector('.sb-embed-card__note'), ok ? 'Visitors who click this go to your Stripe page.' : 'Paste a Stripe Payment Link (https://buy.stripe.com/...) in the Inspector.');
+    }
+    return n;
+  }
+
+  if (type === 'theme.search_box') {
+    const input = el.querySelector('.sb-search-input');
+    if (input && nextProps.placeholder !== prevProps.placeholder) {
+      const value = textOr(nextProps.placeholder, 'Search articles and resources...');
+      if (input.getAttribute('placeholder') !== value) { input.setAttribute('placeholder', value); n += 1; }
+    }
+    if (nextProps.button_text !== prevProps.button_text) {
+      setText(el.querySelector('.sb-search-button'), textOr(nextProps.button_text, 'Search'));
+    }
+    return n;
+  }
+
+  return 0;
+}
+
+const HL_COLOR_RE = /^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgb|rgba|hsl|hsla)\(\s*[0-9.%\s,\/]{1,60}\))$/;
+const HL_KNOWN_CLASSES = ['sb-hl', 'sb-hl--italic', 'sb-hl--underline', 'sb-hl--w-normal', 'sb-hl--w-medium', 'sb-hl--w-bold'];
+
+/**
+ * Span surgery for a heading/hero whose highlight is set in both states, mirroring
+ * Html::highlighted(): the FIRST occurrence of the (trimmed) word sits in span.sb-hl,
+ * flanked by plain text nodes. The text around the span is rewritten in place — no
+ * element is created or removed — and the span's look (italic/underline/weight classes,
+ * a custom colour as its style, a theme colour as one extra class) is updated with it.
+ * The theme-token class is the one class JS cannot name, so it is handled by
+ * elimination: any class that is not a known highlight class is the token's. When the
+ * word no longer occurs in the text, the server renders the text plainly, and so does
+ * this patch. Anything it cannot express is left for the repaint, which
+ * isStructuralChange still requires for highlighted blocks.
+ */
+function patchHighlightedHeading(el, type, prevProps, nextProps) {
+  const host = el.querySelector('.sb-hero__heading, .sb-heading, h1, h2, h3, h4, h5, h6');
+  if (!host) return 0;
+  const span = (Array.from(host.children || []).find((c) => c.classList && c.classList.contains('sb-hl'))) || host.querySelector('.sb-hl');
+  if (!span) return 0;
+  let n = 0;
+
+  const textProp = type === 'core.hero' ? 'heading' : 'text';
+  const nextText = nextProps[textProp];
+  const needle = typeof nextProps.highlight === 'string' ? nextProps.highlight.trim() : '';
+  const prevNeedle = typeof prevProps.highlight === 'string' ? prevProps.highlight.trim() : '';
+  if (typeof nextText === 'string' && (nextText !== prevProps[textProp] || needle !== prevNeedle)) {
+    const at = needle === '' ? -1 : nextText.indexOf(needle);
+    if (at < 0) {
+      if (host.textContent !== nextText) { host.textContent = nextText; n += 1; }
+      return n;
+    }
+    const before = nextText.slice(0, at);
+    const after = nextText.slice(at + needle.length);
+    const beforeNode = span.previousSibling && span.previousSibling.nodeType === 3 ? span.previousSibling : null;
+    const afterNode = span.nextSibling && span.nextSibling.nodeType === 3 ? span.nextSibling : null;
+    if ((before !== '' && !beforeNode) || (after !== '' && !afterNode)) return n;
+    if (beforeNode && beforeNode.textContent !== before) { beforeNode.textContent = before; n += 1; }
+    if (afterNode && afterNode.textContent !== after) { afterNode.textContent = after; n += 1; }
+    if (span.textContent !== needle) { span.textContent = needle; n += 1; }
+  }
+
+  const setCls = (cls, on) => {
+    const has = span.classList.contains(cls);
+    if (on && !has) { span.classList.add(cls); n += 1; } else if (!on && has) { span.classList.remove(cls); n += 1; }
+  };
+  if (nextProps.highlight_italic !== prevProps.highlight_italic) setCls('sb-hl--italic', !!nextProps.highlight_italic);
+  if (nextProps.highlight_underline !== prevProps.highlight_underline) setCls('sb-hl--underline', !!nextProps.highlight_underline);
+  if (nextProps.highlight_weight !== prevProps.highlight_weight) {
+    const w = ['normal', 'medium', 'bold'].includes(nextProps.highlight_weight) ? `sb-hl--w-${nextProps.highlight_weight}` : null;
+    ['sb-hl--w-normal', 'sb-hl--w-medium', 'sb-hl--w-bold'].forEach((c) => { if (c !== w && span.classList.contains(c)) { span.classList.remove(c); n += 1; } });
+    if (w && !span.classList.contains(w)) { span.classList.add(w); n += 1; }
+  }
+  if (nextProps.highlight_color !== prevProps.highlight_color || nextProps.highlight_color_token !== prevProps.highlight_color_token) {
+    const dropTokenClass = () => {
+      Array.from(span.classList).forEach((c) => { if (!HL_KNOWN_CLASSES.includes(c)) { span.classList.remove(c); n += 1; } });
+    };
+    const custom = typeof nextProps.highlight_color === 'string' ? nextProps.highlight_color : '';
+    if (custom !== '' && HL_COLOR_RE.test(custom)) {
+      const style = `color:${custom}`;
+      if (span.getAttribute('style') !== style) { span.setAttribute('style', style); n += 1; }
+      dropTokenClass();
+    } else {
+      if (span.getAttribute('style')) { span.removeAttribute('style'); n += 1; }
+      if (nextProps.highlight_color_token !== prevProps.highlight_color_token) dropTokenClass();
+    }
+  }
+  return n;
 }
 
 /**
@@ -378,6 +590,7 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
   if (!canvasDoc || !canvasDoc.querySelector || !nextDoc) return 0;
 
   let updateCount = 0;
+  const hlGuarded = new Set();
 
   try {
     // 1. Sync Sections
@@ -450,7 +663,16 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
         }
         continue;
       }
-      if (HIGHLIGHT_TYPES.has(nextBlock.type) && (asHighlight(nextBlock) || (prevBlock && asHighlight(prevBlock)))) continue;
+      const hlNext = HIGHLIGHT_TYPES.has(nextBlock.type) && asHighlight(nextBlock);
+      const hlPrev = HIGHLIGHT_TYPES.has(nextBlock.type) && !!prevBlock && asHighlight(prevBlock);
+      if (hlNext && hlPrev) {
+        hlGuarded.add(el);
+        updateCount += patchHighlightedHeading(el, nextBlock.type, prevProps, nextProps);
+      }
+
+      if (LIVE_MODULE_PATCH_TYPES.has(nextBlock.type)) {
+        updateCount += patchModuleBlock(el, nextBlock.type, prevProps, nextProps);
+      }
 
       const nextStyle = isPlainObject(nextBlock.style) ? nextBlock.style : {};
       const prevStyle = prevBlock && isPlainObject(prevBlock.style) ? prevBlock.style : {};
@@ -465,7 +687,7 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
         const titleEl = el.querySelector(
           '.sb-hero__heading, .sb-feature-list__title, .sb-heading, h1, h2, h3, h4, h5, h6, [class*="heading"], [class*="title"]'
         ) || (/^h[1-6]$/i.test(el.tagName) ? el : null);
-        if (titleEl && titleEl.textContent !== titleVal) {
+        if (titleEl && !hlGuarded.has(el) && titleEl.textContent !== titleVal) {
           titleEl.textContent = titleVal;
           updateCount += 1;
         }
@@ -494,7 +716,7 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
       // Body text / paragraph / content
       const textVal = nextProps.text !== undefined ? nextProps.text : (nextProps.content !== undefined ? nextProps.content : nextProps.body);
       const prevTextVal = prevProps.text !== undefined ? prevProps.text : (prevProps.content !== undefined ? prevProps.content : prevProps.body);
-      if (textVal !== undefined && textVal !== prevTextVal) {
+      if (textVal !== undefined && textVal !== prevTextVal && !(hlGuarded.has(el) && nextBlock.type === 'core.heading')) {
         const textEl = el.querySelector('.sb-text, .sb-feature__body, p, [class*="description"], [class*="content"]')
           || (/^h[1-6]|p|span|a|button$/i.test(el.tagName) ? el : null);
         if (textEl) {

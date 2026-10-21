@@ -135,8 +135,15 @@ function richEl(tag, classes = [], text = '', kids = []) {
     style: {},
     setAttribute: (k, v) => { attrs[k] = String(v); },
     getAttribute: (k) => (k in attrs ? attrs[k] : null),
+    removeAttribute: (k) => { delete attrs[k]; },
     querySelector: (sel) => richQuery(node, sel),
-    querySelectorAll: () => [],
+    querySelectorAll: (sel) => {
+      const cls = sel.startsWith('.') ? sel.slice(1) : null;
+      const out = [];
+      const walk = (n) => (n.children || []).forEach((c) => { if (cls && c.classList && c.classList.contains(cls)) out.push(c); walk(c); });
+      walk(node);
+      return out;
+    },
     _attrs: attrs,
   };
   let own = text;
@@ -270,7 +277,135 @@ test('card, table, countdown, divider, spacer and icon patch their class and tex
   assert.ok(icon.classList.contains('sb-icon--lg') && icon.classList.contains('sb-icon--center'), 'icon size and align swapped');
 });
 
-test('a heading with a highlighted word repaints from the server instead of having its markup flattened', () => {
+test('nav menu and map patch instantly; a bound menu keeps its items from the menu store', () => {
+  const doc = (type, props) => ({ sections: [sec([blk('x', type, props)])] });
+  const run = (el, a, b) => syncLiveDOM({ querySelector: () => el }, a, b);
+
+  // Nav: layout class, aria label, and the block's own links while no menu is bound.
+  const a1 = richEl('a', ['sb-nav__link'], 'Home');
+  a1.setAttribute('href', '/');
+  const a2 = richEl('a', ['sb-nav__link'], 'About');
+  a2.setAttribute('href', '/about');
+  const nav = richEl('nav', ['sb-nav', 'sb-nav--horizontal', 'sb-nav--left', 'sb-nav--plain'], '', [
+    richEl('ul', ['sb-nav__list'], '', [richEl('li', ['sb-nav__item'], '', [a1]), richEl('li', ['sb-nav__item'], '', [a2])]),
+  ]);
+  nav.setAttribute('aria-label', 'Menu');
+  const navEl = richEl('div', ['sb-block'], '', [nav]);
+  const na = doc('core.nav_menu', { layout: 'horizontal', align: 'left', style: 'plain', aria_label: 'Menu', items: [{ label: 'Home', url: '/' }, { label: 'About', url: '/about' }] });
+  const nb = doc('core.nav_menu', { layout: 'vertical', align: 'left', style: 'plain', aria_label: 'Main', items: [{ label: 'Start', url: '/start' }, { label: 'About', url: '/about' }] });
+  run(navEl, na, nb);
+  assert.ok(nav.classList.contains('sb-nav--vertical'), 'nav layout swapped');
+  assert.equal(nav.getAttribute('aria-label'), 'Main');
+  assert.equal(a1.textContent, 'Start');
+  assert.equal(a1.getAttribute('href'), '/start');
+
+  // With a site menu bound, props.items edits must NOT touch the rendered links.
+  const nc = doc('core.nav_menu', { layout: 'vertical', align: 'left', style: 'plain', aria_label: 'Main', menu: 'main', items: [{ label: 'Hacked', url: '/x' }, { label: 'About', url: '/about' }] });
+  run(navEl, nb, nc);
+  assert.equal(a1.textContent, 'Start', 'bound menu items untouched');
+  const nd = doc('core.nav_menu', { layout: 'vertical', align: 'left', style: 'plain', aria_label: ' ', menu: 'main', items: nb.sections[0].blocks[0].props.items });
+  run(navEl, nc, nd);
+  assert.equal(nav.getAttribute('aria-label'), null, 'a blank label drops the attribute, like the server');
+
+  // Map: the iframe src is rebuilt with the renderer's own embed math.
+  const frame = richEl('iframe', [], '');
+  frame.setAttribute('src', 'https://www.openstreetmap.org/export/embed.html?bbox=old');
+  frame.setAttribute('title', 'Map');
+  const mapDiv = richEl('div', ['sb-map', 'sb-map--md'], '', [frame]);
+  const mapEl = richEl('div', ['sb-block'], '', [mapDiv]);
+  const ma = doc('core.map', { latitude: 23.8103, longitude: 90.4125, zoom: 12, height: 'md', title: 'Map' });
+  const mb = doc('core.map', { latitude: 23.8103, longitude: 90.4125, zoom: 13, height: 'lg', title: 'Office' });
+  run(mapEl, ma, mb);
+  assert.equal(frame.getAttribute('src'), 'https://www.openstreetmap.org/export/embed.html?bbox=90.36855,23.78613,90.45645,23.83447&layer=mapnik&marker=23.81030,90.41250');
+  assert.equal(frame.getAttribute('title'), 'Office');
+  assert.ok(mapDiv.classList.contains('sb-map--lg'), 'map height swapped');
+  const mc = doc('core.map', { latitude: 999, longitude: 90.4125, zoom: 13, height: 'lg', title: 'Office' });
+  run(mapEl, mb, mc);
+  assert.ok(frame.getAttribute('src').includes('bbox=90.36855'), 'an out-of-range point is left for the repaint');
+});
+
+test('module blocks patch the author-text props the generic patchers cannot know', () => {
+  const doc = (type, props) => ({ sections: [sec([blk('x', type, props)])] });
+  const run = (el, a, b) => syncLiveDOM({ querySelector: () => el }, a, b);
+
+  // Catalog CTA labels (booking + membership share the markup).
+  const cta = richEl('a', ['sb-button', 'sb-button--primary'], 'Book now');
+  const catEl = richEl('div', ['sb-block'], '', [richEl('div', ['sb-catalog'], '', [richEl('p', ['sb-button-row'], '', [cta])])]);
+  run(catEl, doc('booking.services', { cta_label: '' }), doc('booking.services', { cta_label: 'Reserve' }));
+  assert.equal(cta.textContent, 'Reserve');
+  run(catEl, doc('booking.services', { cta_label: 'Reserve' }), doc('booking.services', { cta_label: '' }));
+  assert.equal(cta.textContent, 'Book now', 'an empty label falls back to the renderer default');
+
+  // Form card button label.
+  const open = richEl('a', ['sb-button', 'sb-button--primary'], 'Open form');
+  const formEl = richEl('div', ['sb-block'], '', [richEl('div', ['sb-form-card'], '', [richEl('p', ['sb-button-row'], '', [open])])]);
+  run(formEl, doc('forms.form_card', { button_label: '' }), doc('forms.form_card', { button_label: 'Apply now' }));
+  assert.equal(open.textContent, 'Apply now');
+
+  // Payment link: the editor note follows the URL's validity.
+  const note = richEl('p', ['sb-embed-card__note'], 'Paste a Stripe Payment Link (https://buy.stripe.com/...) in the Inspector.');
+  const payEl = richEl('div', ['sb-block'], '', [richEl('div', ['sb-pay-card'], '', [note])]);
+  run(payEl, doc('payment.link', { label: 'Pay', url: '' }), doc('payment.link', { label: 'Pay', url: 'https://buy.stripe.com/abc123' }));
+  assert.equal(note.textContent, 'Visitors who click this go to your Stripe page.');
+  run(payEl, doc('payment.link', { label: 'Pay', url: 'https://buy.stripe.com/abc123' }), doc('payment.link', { label: 'Pay', url: 'https://evil.example.com/x' }));
+  assert.ok(note.textContent.startsWith('Paste a Stripe'), 'a non-Stripe URL flips the note back');
+
+  // Search box: placeholder attribute and button text.
+  const input = richEl('input', ['sb-search-input'], '');
+  input.setAttribute('placeholder', 'Search articles and resources...');
+  const btn = richEl('button', ['sb-search-button'], 'Search');
+  const searchEl = richEl('div', ['sb-block'], '', [richEl('form', ['sb-search-form'], '', [input, btn])]);
+  run(searchEl, doc('theme.search_box', {}), doc('theme.search_box', { placeholder: 'Find a course', button_text: 'Go' }));
+  assert.equal(input.getAttribute('placeholder'), 'Find a course');
+  assert.equal(btn.textContent, 'Go');
+});
+
+test('a highlighted heading patches around its span instead of erasing it', () => {
+  const doc = (props) => ({ sections: [sec([blk('x', 'core.heading', props)])] });
+  const textNode = (t) => ({ nodeType: 3, _t: t, get textContent() { return this._t; }, set textContent(v) { this._t = String(v); } });
+  const build = (beforeText, word, afterText) => {
+    const span = richEl('span', ['sb-hl'], word);
+    const before = textNode(beforeText);
+    const after = textNode(afterText);
+    span.previousSibling = before;
+    span.nextSibling = after;
+    const host = richEl('h2', ['sb-heading'], '', [span]);
+    const el = richEl('div', ['sb-block'], '', [host]);
+    el.querySelector = (sel) => (sel.includes('.sb-heading') ? host : richQuery(el, sel));
+    return { span, before, after, host, el };
+  };
+  const base = { text: 'Our Section Heading', highlight: 'Section', highlight_color: '' };
+
+  // Typing around the word rewrites the flanking text nodes; the span survives.
+  const a = build('Our ', 'Section', ' Heading');
+  syncLiveDOM({ querySelector: () => a.el }, doc(base), doc({ ...base, text: 'Your Section Heading' }));
+  assert.equal(a.before.textContent, 'Your ');
+  assert.equal(a.span.textContent, 'Section', 'the highlight span was not flattened');
+  assert.ok(a.host.children.includes(a.span), 'the span is still in the heading');
+
+  // Moving the word redistributes the text; changing the word rewrites the span.
+  const b = build('Our ', 'Section', ' Heading');
+  syncLiveDOM({ querySelector: () => b.el }, doc(base), doc({ ...base, text: 'My Heading Section' }));
+  assert.equal(b.before.textContent, 'My Heading ');
+  assert.equal(b.after.textContent, '');
+  const c = build('Our ', 'Section', ' Heading');
+  syncLiveDOM({ querySelector: () => c.el }, doc(base), doc({ ...base, highlight: 'Heading' }));
+  assert.equal(c.span.textContent, 'Heading');
+  assert.equal(c.before.textContent, 'Our Section ');
+
+  // The word gone from the text: the heading goes plain, exactly as the server renders.
+  const d = build('Our ', 'Section', ' Heading');
+  syncLiveDOM({ querySelector: () => d.el }, doc(base), doc({ ...base, text: 'Plain words only' }));
+  assert.equal(d.host.textContent, 'Plain words only');
+
+  // The look follows: italic class and a custom colour as the span's style.
+  const e = build('Our ', 'Section', ' Heading');
+  syncLiveDOM({ querySelector: () => e.el }, doc(base), doc({ ...base, highlight_italic: true, highlight_color: '#00ff00' }));
+  assert.ok(e.span.classList.contains('sb-hl--italic'), 'italic class applied');
+  assert.equal(e.span.getAttribute('style'), 'color:#00ff00', 'custom colour applied');
+});
+
+test('a heading with a highlighted word is never flattened by a text write (the repaint still confirms it)', () => {
   const doc = (props) => ({ sections: [sec([blk('h', 'core.heading', props)])] });
   assert.equal(isStructuralChange(doc({ text: 'Get started' }), doc({ text: 'Get started now' })), false, 'plain heading: live patch');
   assert.equal(isStructuralChange(doc({ text: 'Get started', highlight: 'started' }), doc({ text: 'Get started now', highlight: 'started' })), true, 'text edit under a highlight');
@@ -278,7 +413,7 @@ test('a heading with a highlighted word repaints from the server instead of havi
   const el = fakeEl('h2', ['sb-heading'], 'Get <span>started</span>');
   const canvasDoc = { querySelector: () => el };
   syncLiveDOM(canvasDoc, doc({ text: 'Get started', highlight: 'started' }), doc({ text: 'Get going', highlight: 'started' }));
-  assert.equal(el.textContent, 'Get <span>started</span>', 'untouched: the server repaint owns it');
+  assert.equal(el.textContent, 'Get <span>started</span>', 'no plain text write touched it: span surgery or the repaint owns it');
 });
 
 test('a section animation or interaction change repaints from the server (the classes are written there)', () => {
