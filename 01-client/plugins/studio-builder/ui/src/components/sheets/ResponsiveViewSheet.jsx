@@ -11,6 +11,7 @@ import { useEditor } from '../EditorContext.jsx';
 import { VIEWPORTS } from '../../core/viewport.mjs';
 import { ZOOM_STEPS, canZoomIn, canZoomOut, stepZoom } from '../../core/zoom.mjs';
 import { t } from '../../core/messages.mjs';
+import { ViewportWidthInput } from '../ViewportWidthInput.jsx';
 
 function Toggle({ id, label, checked, onChange, disabled = false, note = null }) {
   return (
@@ -24,7 +25,7 @@ function Toggle({ id, label, checked, onChange, disabled = false, note = null })
   );
 }
 
-export const ResponsiveViewSheet = memo(function ResponsiveViewSheet({ viewportKey, onViewport, percent, onClose }) {
+export const ResponsiveViewSheet = memo(function ResponsiveViewSheet({ viewportKey, onViewport, customWidth = 1024, onCustomViewport = () => {}, percent, onClose }) {
   const { canvasView, setCanvasView } = useEditor();
   return (
     <SheetPrimitive title={t('responsive_view')} subtitle={t('responsive_view_hint')} onClose={onClose} className="sbx-responsive-sheet" testId="sheet-responsive">
@@ -44,6 +45,14 @@ export const ResponsiveViewSheet = memo(function ResponsiveViewSheet({ viewportK
                 {t(v.key)} <small>{v.width}px</small>
               </button>
             ))}
+          </div>
+          <div className="sbx-rv-custom">
+            <ViewportWidthInput
+              testId="rv-viewport-width"
+              width={viewportKey === 'custom' ? customWidth : (VIEWPORTS.find((v) => v.key === viewportKey) || VIEWPORTS[0]).width}
+              active={viewportKey === 'custom'}
+              onCommit={onCustomViewport}
+            />
           </div>
         </section>
 

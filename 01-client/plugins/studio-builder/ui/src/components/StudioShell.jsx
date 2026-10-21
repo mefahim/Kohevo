@@ -46,7 +46,7 @@ import { insertTargetFor, referenceIndexFor, slugify } from '../core/library.mjs
 import * as ops from '../core/operations.mjs';
 import { lockViolation } from '../core/layerLock.mjs';
 import { buildEnvelope, peekMemory, planPaste, readClipboard, regenerateIds, writeClipboard } from '../core/clipboard.mjs';
-import { viewportByKey } from '../core/viewport.mjs';
+import { clampViewportWidth, customViewport, viewportByKey } from '../core/viewport.mjs';
 import { useIsMobileShell, isMobileShellNow } from '../hooks/useIsMobileShell.mjs';
 import { isEditing, keyboardInset, normalizeViewMode } from '../core/shellState.mjs';
 import { zoomPercent } from '../core/zoom.mjs';
@@ -79,6 +79,7 @@ export function StudioShell({ boot, transport: injectedTransport = null, lockEna
   const [announcement, setAnnouncement] = useState('');
   // A phone starts on the Mobile device so the canvas is not a shrunken desktop page.
   const [viewportKey, setViewportKey] = useState(() => (isMobileShellNow() ? 'mobile' : 'desktop'));
+  const [customWidth, setCustomWidth] = useState(1024);
   // Canvas view aids shared by the bottom bar and the mobile Responsive-view sheet.
   const [canvasView, setCanvasViewState] = useState({ zoom: 'fit', grid: false, outlines: false, labels: false, fitPercent: 100 });
   const setCanvasView = useCallback((patch) => setCanvasViewState((v) => ({ ...v, ...patch })), []);
@@ -503,6 +504,13 @@ export function StudioShell({ boot, transport: injectedTransport = null, lockEna
     announce(t('announce_viewport', { label: t(key) }));
   }, [announce]);
 
+  const setCustomViewport = useCallback((width) => {
+    const w = clampViewportWidth(width);
+    setCustomWidth(w);
+    setViewportKey('custom');
+    announce(t('announce_viewport', { label: `${w}px` }));
+  }, [announce]);
+
   // ── Phase 6 actions: templates (copy), global components (reference), chrome, theme ─
   const templateName = (tpl) => (tpl && tpl.name) || (tpl && tpl.template_key) || '';
 
@@ -645,7 +653,7 @@ export function StudioShell({ boot, transport: injectedTransport = null, lockEna
     boot, engine, manifest, transport, mediaApi, announce, applyOp, canvasView, setCanvasView,
     insertBlock, insertBlockWithProps, insertSection, duplicateNode, updateSectionLabel, renameNode, setLocked, removeNode, moveBlockTo, moveSectionTo, labelOf,
     copyNode, cutNode, pasteNode, toggleHidden, clipboardShortcut, peekClipboard: peekMemory,
-    viewport: viewportByKey(viewportKey), setViewport: changeViewport, tokensSaved: onTokensSaved, refreshManifest, panelRequest, requestPanel, requestEdit, layoutChooser, setLayoutChooser, structureOpen, setStructureOpen, toggleStructure,
+    viewport: viewportKey === 'custom' ? customViewport(customWidth) : viewportByKey(viewportKey), setViewport: changeViewport, customWidth, setCustomViewport, tokensSaved: onTokensSaved, refreshManifest, panelRequest, requestPanel, requestEdit, layoutChooser, setLayoutChooser, structureOpen, setStructureOpen, toggleStructure,
     library: libraryWithPresets, refreshLibrary, ensurePresets, applyTemplate, insertTemplate, deleteTemplate,
     insertComponentRef, detachComponent, publishComponent, createPartial, canvasVersion,
     openSaveTemplate: () => setDialog('save_template'),
@@ -656,7 +664,7 @@ export function StudioShell({ boot, transport: injectedTransport = null, lockEna
     openHistory: () => setHistoryOpen(true),
     openTheme: manifest && manifest.permissions && (manifest.permissions.tokens || manifest.permissions.view) ? () => setDialog('theme') : null,
     openPackages: manifest && manifest.permissions && manifest.permissions.view ? () => setDialog('package') : null,
-  }), [boot, engine, manifest, transport, mediaApi, announce, applyOp, canvasView, setCanvasView, insertBlock, insertBlockWithProps, insertSection, duplicateNode, updateSectionLabel, renameNode, setLocked, removeNode, moveBlockTo, moveSectionTo, labelOf, copyNode, cutNode, pasteNode, toggleHidden, clipboardShortcut, viewportKey, changeViewport, onTokensSaved, refreshManifest, panelRequest, requestPanel, requestEdit, layoutChooser, setLayoutChooser, structureOpen, setStructureOpen, toggleStructure,
+  }), [boot, engine, manifest, transport, mediaApi, announce, applyOp, canvasView, setCanvasView, insertBlock, insertBlockWithProps, insertSection, duplicateNode, updateSectionLabel, renameNode, setLocked, removeNode, moveBlockTo, moveSectionTo, labelOf, copyNode, cutNode, pasteNode, toggleHidden, clipboardShortcut, viewportKey, changeViewport, customWidth, setCustomViewport, onTokensSaved, refreshManifest, panelRequest, requestPanel, requestEdit, layoutChooser, setLayoutChooser, structureOpen, setStructureOpen, toggleStructure,
     libraryWithPresets, refreshLibrary, ensurePresets, applyTemplate, insertTemplate, deleteTemplate, insertComponentRef, detachComponent, publishComponent, createPartial, canvasVersion]);
 
   const selectionCtx = useMemo(() => ({
@@ -685,6 +693,8 @@ export function StudioShell({ boot, transport: injectedTransport = null, lockEna
       <ShellLayout
         viewportKey={viewportKey}
         onViewport={changeViewport}
+        customWidth={customWidth}
+        onCustomViewport={setCustomViewport}
         onSave={save}
         onUndo={undo}
         onRedo={redo}
@@ -737,7 +747,7 @@ const SHEET_TABS = ['theme', 'more'];
 
 /** The unified one-sided builder shell (rendered inside an EditorContext). */
 export function ShellLayout({
-  viewportKey, onViewport, onSave, onUndo, onRedo, onPublish, onReload, announcement, notice = '', lockState,
+  viewportKey, onViewport, customWidth = 1024, onCustomViewport = () => {}, onSave, onUndo, onRedo, onPublish, onReload, announcement, notice = '', lockState,
   historyOpen = false, setHistoryOpen = () => {}, pendingInsert = null, onCancelInsert = () => {}, onConfirmInsert = () => {},
   onTheme = null, dialogs = null, onAiReview = null, onPackages = null,
 }) {
@@ -838,6 +848,8 @@ export function ShellLayout({
         onToggleInspector={toggleInspector}
         viewportKey={viewportKey}
         onViewport={onViewport}
+        customWidth={customWidth}
+        onCustomViewport={onCustomViewport}
         onSave={onSave}
         onUndo={onUndo}
         onRedo={onRedo}
@@ -912,6 +924,8 @@ export function ShellLayout({
         <ResponsiveViewSheet
           viewportKey={viewportKey}
           onViewport={onViewport}
+          customWidth={customWidth}
+          onCustomViewport={onCustomViewport}
           percent={zoomPercent(canvasView.zoom, canvasView.fitPercent / 100)}
           onClose={() => setResponsiveOpen(false)}
         />

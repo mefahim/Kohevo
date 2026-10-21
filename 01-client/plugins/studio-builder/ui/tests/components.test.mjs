@@ -76,6 +76,7 @@ test('section selection shows responsive layout controls in the canonical breakp
   assert.match(html, /aria-pressed="true"[^>]*aria-label="Tablet"[^>]*title="Tablet \(md\)"|title="Tablet \(md\)"/, 'the active viewport device is marked');
   assert.match(html, /width:820px/, 'tablet viewport = 820px frame (md)');
   assert.match(html, /aria-pressed="true"[^>]*aria-label="Tablet"/);
+  assert.match(html, /data-testid="viewport-width"[^>]*value="820"/, 'the custom width input mirrors the active preset width (Batch E3)');
 });
 
 test('save state and conflict state are visible and blocking', { skip: skipReason || false }, () => {

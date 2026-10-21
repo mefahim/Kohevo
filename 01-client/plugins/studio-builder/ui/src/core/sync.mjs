@@ -35,6 +35,15 @@ export const STATUS = Object.freeze({
 
 const MAX_BATCH = 50;
 const MAX_HISTORY = 50;
+/**
+ * Undo granularity (Batch E2): two confirmed AUTOSAVE batches of plain
+ * property edits landing within this window collapse into ONE undo step
+ * (the merged step keeps the first batch's `before`, so one undo returns
+ * to where the burst started). Structural batches and manual saves are
+ * always their own step, and a merge never crosses a revision chain break
+ * (the new batch's `before` must be the previous step's `after`).
+ */
+export const UNDO_MERGE_WINDOW_MS = 4000;
 const RETRY_DELAYS = [2000, 5000, 10000, 30000];
 
 export class SyncEngine {
@@ -47,11 +56,13 @@ export class SyncEngine {
    * @param {Function} [deps.cancel]   (handle) => void
    * @param {Function} [deps.onRemap]  (provisionalId, realId) => void
    * @param {Function} [deps.onEvent]  (event) => void  — announcements
+   * @param {Function} [deps.now]      () => ms — clock (tests inject a fake)
    */
-  constructor({ transport, pageId, debounceMs = 900, schedule, cancel, onRemap, onEvent }) {
+  constructor({ transport, pageId, debounceMs = 900, schedule, cancel, onRemap, onEvent, now }) {
     this.transport = transport;
     this.pageId = pageId;
     this.debounceMs = debounceMs;
+    this.now = now || (() => Date.now());
     this.schedule = schedule || ((fn, ms) => setTimeout(fn, ms));
     this.cancel = cancel || ((h) => clearTimeout(h));
     this.onRemap = onRemap || (() => {});
@@ -227,9 +238,18 @@ export class SyncEngine {
       map.forEach((real, tmp) => this.onRemap(tmp, real));
 
       const after = data.revision ? data.revision.id : before;
-      const undo = !data.deduplicated && before && after && after !== before
-        ? [...this.state.undo, { before, after, label: batch.map((e) => e.label).filter(Boolean).pop() || '' }].slice(-MAX_HISTORY)
-        : this.state.undo;
+      let undo = this.state.undo;
+      if (!data.deduplicated && before && after && after !== before) {
+        const at = this.now();
+        const label = batch.map((e) => e.label).filter(Boolean).pop() || '';
+        const mergeable = kind === 'autosave' && !batch.some((e) => STRUCTURAL.has(e.op.op));
+        const prev = undo[undo.length - 1];
+        if (mergeable && prev && prev.mergeable && prev.after === before && at - (prev.at || 0) <= UNDO_MERGE_WINDOW_MS) {
+          undo = [...undo.slice(0, -1), { before: prev.before, after, label: label || prev.label, at, mergeable: true }].slice(-MAX_HISTORY);
+        } else {
+          undo = [...undo, { before, after, label, at, mergeable }].slice(-MAX_HISTORY);
+        }
+      }
       this.rebuild({
         base: data.document, page: data.page, revision: data.revision || this.state.revision,
         inflight: [], pending, undo,

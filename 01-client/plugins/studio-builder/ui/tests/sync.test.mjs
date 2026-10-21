@@ -233,3 +233,69 @@ test('remove, move and section reorder are canonical operations and survive a re
   assert.deepEqual(r, engine.getSnapshot().working);
   assert.ok(!nodeIds(r).has(a.id));
 });
+
+// ── Batch E2: undo granularity — rapid autosave bursts merge into one step ──
+
+function setupClocked(initial = doc([section([heading('Hello'), heading('World')])])) {
+  const server = fakeServer(initial, serverApply);
+  const sched = manualScheduler();
+  let clock = 1_000_000;
+  const engine = new SyncEngine({
+    transport: server.transport, pageId: 1, debounceMs: 900,
+    schedule: sched.schedule, cancel: sched.cancel, now: () => clock,
+  });
+  const snap = { document: JSON.parse(JSON.stringify(server.currentDoc)), page: { id: 1 }, revision: { id: server.currentId } };
+  engine.load(snap, manifest);
+  return { server, sched, engine, advance: (ms) => { clock += ms; } };
+}
+
+test('undo granularity: two autosave property bursts inside the window merge into one step', async () => {
+  const { engine, server, sched } = setupClocked();
+  const [a, b] = engine.getSnapshot().working.sections[0].blocks;
+  const r0 = server.currentId;
+  engine.apply(ops.updateBlockProps(a.id, { text: 'A1' }));
+  await sched.runAll(); await engine.busy;
+  engine.apply(ops.updateBlockProps(b.id, { text: 'B1' }));
+  await sched.runAll(); await engine.busy;
+  const r2 = server.currentId;
+  assert.notEqual(r2, r0);
+  const undo = engine.getSnapshot().undo;
+  assert.equal(undo.length, 1, 'the burst is a single undo step');
+  assert.deepEqual({ before: undo[0].before, after: undo[0].after }, { before: r0, after: r2 }, 'the merged step spans the whole burst');
+  assert.equal(await engine.undo(), true);
+  assert.equal(firstBlock(engine.getSnapshot().working).props.text, 'Hello', 'one undo returns to before the burst');
+});
+
+test('undo granularity: bursts outside the window stay separate steps', async () => {
+  const { engine, sched, advance } = setupClocked();
+  const [a, b] = engine.getSnapshot().working.sections[0].blocks;
+  engine.apply(ops.updateBlockProps(a.id, { text: 'A1' }));
+  await sched.runAll(); await engine.busy;
+  advance(60_000);
+  engine.apply(ops.updateBlockProps(b.id, { text: 'B1' }));
+  await sched.runAll(); await engine.busy;
+  assert.equal(engine.getSnapshot().undo.length, 2);
+});
+
+test('undo granularity: a manual save is always its own step and breaks merging', async () => {
+  const { engine, sched } = setupClocked();
+  const [a, b] = engine.getSnapshot().working.sections[0].blocks;
+  engine.apply(ops.updateBlockProps(a.id, { text: 'A1' }));
+  await sched.runAll(); await engine.busy;
+  engine.apply(ops.updateBlockProps(b.id, { text: 'B1' }));
+  assert.equal(await engine.save(), true);
+  assert.equal(engine.getSnapshot().undo.length, 2, 'manual save did not merge into the autosave step');
+  engine.apply(ops.updateBlockProps(a.id, { text: 'A2' }));
+  await sched.runAll(); await engine.busy;
+  assert.equal(engine.getSnapshot().undo.length, 3, 'an autosave after a manual save starts a fresh step');
+});
+
+test('undo granularity: a structural batch never merges', async () => {
+  const { engine, sched } = setupClocked();
+  const [a] = engine.getSnapshot().working.sections[0].blocks;
+  engine.apply(ops.updateBlockProps(a.id, { text: 'A1' }));
+  await sched.runAll(); await engine.busy;
+  engine.apply(ops.insertBlock(engine.getSnapshot().working.sections[0].id, heading('New'), 1), { provisionalId: 'tmp_0000000000000000000000ab' });
+  await sched.runAll(); await engine.busy;
+  assert.equal(engine.getSnapshot().undo.length, 2, 'the insert is its own undo step');
+});

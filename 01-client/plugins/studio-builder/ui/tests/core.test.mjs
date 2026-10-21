@@ -6,7 +6,7 @@ import * as d from '../src/core/doc.mjs';
 import * as ops from '../src/core/operations.mjs';
 import * as fields from '../src/core/fields.mjs';
 import * as motion from '../src/core/motion.mjs';
-import { VIEWPORTS, breakpointForWidth, resolveResponsive, BREAKPOINTS } from '../src/core/viewport.mjs';
+import { VIEWPORTS, breakpointForWidth, clampViewportWidth, customViewport, resolveResponsive, BREAKPOINTS } from '../src/core/viewport.mjs';
 import { toAllowedHtml } from '../src/core/richtext.mjs';
 import { attachCanvas, nodeElementFrom, markSelected } from '../src/core/canvas.mjs';
 import { createTransport } from '../src/core/api.mjs';
@@ -285,6 +285,17 @@ test('viewports use the canonical breakpoints and renderer thresholds', () => {
   assert.equal(breakpointForWidth(1023), 'md');
   assert.equal(resolveResponsive({ base: 1, md: 3 }, 'sm'), 1);
   assert.equal(resolveResponsive({ base: 1, md: 3 }, 'lg'), 3);
+});
+
+test('custom viewport widths clamp to the device range and derive their breakpoint (Batch E3)', () => {
+  assert.equal(clampViewportWidth(100), 240);
+  assert.equal(clampViewportWidth(9999), 2560);
+  assert.equal(clampViewportWidth('wide'), 1024);
+  assert.equal(clampViewportWidth(500.6), 501);
+  assert.deepEqual(customViewport(390), { key: 'custom', label: 'Custom', width: 390, breakpoint: 'base' });
+  assert.equal(customViewport(820).breakpoint, 'md');
+  assert.equal(customViewport(1440).breakpoint, 'lg');
+  assert.equal(customViewport(700).breakpoint, 'sm');
 });
 
 // ── richtext.mjs ─────────────────────────────────────────────────────────
