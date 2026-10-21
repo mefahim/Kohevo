@@ -325,7 +325,16 @@ if (!function_exists('sb_render_media_picker_modal')) {
 
                     if (previewBox) {
                         if (url) {
-                            previewBox.innerHTML = '<img src="' + url + '" class="sb-media-preview-img" alt="Preview" onerror="this.style.display=\'none\';">';
+                            // Build the preview with DOM APIs, never innerHTML: the URL
+                            // comes from a form field, and string-built markup would let
+                            // a quote in it break out of the src attribute (self-XSS).
+                            previewBox.textContent = '';
+                            var img = document.createElement('img');
+                            img.src = url;
+                            img.className = 'sb-media-preview-img';
+                            img.alt = 'Preview';
+                            img.onerror = function() { this.style.display = 'none'; };
+                            previewBox.appendChild(img);
                         } else {
                             previewBox.innerHTML = '<div class="sb-media-preview-empty">' + <?= json_encode(sb_svg('media', 18)) ?> + '</div>';
                         }

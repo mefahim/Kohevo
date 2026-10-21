@@ -11,6 +11,9 @@ declare(strict_types=1);
 require __DIR__ . '/../../../config.php';
 require_once __DIR__ . '/_nav.php';
 
+use Slate\Module\StudioBuilder\Application\StudioActor;
+use Slate\Module\StudioBuilder\Runtime\StudioRuntimeFactory;
+
 Auth::require();
 Auth::requirePerm('studio-builder.view');
 ModuleGuard::require('studio-builder');
@@ -86,34 +89,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($revId > 0 && $pageId > 0) {
                 try {
-                    $targetRev = Database::row("SELECT * FROM studiobuilder_revisions WHERE tenant_id = ? AND id = ? AND page_id = ? LIMIT 1", [$tenantId, $revId, $pageId]);
-
-                    if (!$targetRev) {
-                        $flash = ['type' => 'error', 'msg' => 'Revision not found or belongs to another tenant.'];
-                    } else {
-                        // Find current max revision number for this page
-                        $maxRev = (int) Database::value("SELECT MAX(revision_number) FROM studiobuilder_revisions WHERE tenant_id = ? AND page_id = ?", [$tenantId, $pageId]);
-                        $nextRevNum = $maxRev + 1;
-
-                        // The restored copy is a new revision, and it becomes the page's current draft so the builder opens it.
-                        // The live page is untouched until that draft is published.
-                        $newId = Database::insert('studiobuilder_revisions', [
-                            'tenant_id' => $tenantId,
-                            'page_id' => $pageId,
-                            'revision_number' => $nextRevNum,
-                            'revision_kind' => 'rollback',
-                            'schema_version' => (string) ($targetRev['schema_version'] ?? '1.0'),
-                            'document_json' => $targetRev['document_json'],
-                            'summary' => "Rollback to revision #{$targetRev['revision_number']} (from ID #{$revId})",
-                            'parent_revision_id' => $revId,
-                            'created_by' => (int) (Auth::userId() ?? 1),
-                            'created_at' => date('Y-m-d H:i:s'),
-                        ]);
-
-                        Database::query('UPDATE studiobuilder_pages SET active_draft_revision_id = ?, updated_at = NOW(), updated_by = ? WHERE tenant_id = ? AND id = ?', [$newId, (int) (Auth::userId() ?? 1), $tenantId, $pageId]);
-
-                        $flash = ['type' => 'success', 'msg' => "Page restored to snapshot #{$targetRev['revision_number']} as a new draft (revision #{$nextRevNum}). Open it in the builder to review and publish."];
-                    }
+                    // Through the application service, not by hand: it authorizes the
+                    // actor, validates the restored document, and writes the audit
+                    // record. The raw SQL that used to live here did none of that and
+                    // could resurrect a broken document straight into the draft slot.
+                    $result = StudioRuntimeFactory::build()->app->rollback(
+                        StudioActor::fromCurrentSession(),
+                        $pageId,
+                        $revId,
+                        null,
+                        "Rollback to revision ID #{$revId} (from Reviews)"
+                    );
+                    $newRevNum = (int) ($result['revision']['revision_number'] ?? 0);
+                    $flash = ['type' => 'success', 'msg' => "Page restored to the chosen snapshot as a new draft (revision #{$newRevNum}). Open it in the builder to review and publish."];
                 } catch (\Throwable $e) {
                     $flash = ['type' => 'error', 'msg' => 'Rollback failed: ' . $e->getMessage()];
                 }
