@@ -114,7 +114,9 @@ export const CanvasArea = memo(function CanvasArea({ interactive = true, collaps
     if (canvasView.fitPercent !== fitPercent) setCanvasView({ fitPercent });
   }, [fitPercent, canvasView.fitPercent, setCanvasView]);
 
-  const frameHeight = stage.height > 0 ? Math.max(640, (stage.height - (isMobile ? 48 : 0)) / scale) : 900;
+  // At scale > 1 the frame keeps its fit-height and the stage scrolls, so a
+  // magnified page stays fully reachable (Batch E3); below 1 it shrinks to fit.
+  const frameHeight = stage.height > 0 ? Math.max(640, (stage.height - (isMobile ? 48 : 0)) / Math.min(scale, 1)) : 900;
 
   // Direct inline text update: the canvas names the declared prop it edited (core/inlineText.mjs).
   const onInlineText = useCallback((nodeId, newText, prop) => {
@@ -591,7 +593,7 @@ export const CanvasArea = memo(function CanvasArea({ interactive = true, collaps
             style={{
               width: `${viewport.width}px`,
               height: `${frameHeight}px`,
-              transform: scale < 1 ? `scale(${scale})` : undefined,
+              transform: scale !== 1 ? `scale(${scale})` : undefined,
               transformOrigin: '0 0',
               top: 0,
               left: 0,

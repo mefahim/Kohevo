@@ -428,6 +428,36 @@ html, body.sbx-body {
   box-sizing: border-box;
 }
 
+/* Custom viewport width (Batch E3) */
+.sbx-viewport-width {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  padding: 0 6px 0 2px;
+  border-left: 1px solid var(--sbx-border);
+  color: var(--sbx-muted);
+  font-size: var(--sbx-fs-xs);
+}
+.sbx-viewport-width input {
+  width: 52px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.sbx-viewport-width input::-webkit-outer-spin-button,
+.sbx-viewport-width input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sbx-viewport-width.is-active { color: var(--sbx-accent-soft); }
+.sbx-viewport-width.is-active input { color: inherit; font-weight: 600; }
+.sbx-rv-custom { margin-top: 8px; }
+.sbx-rv-custom .sbx-viewport-width { border-left: none; margin-left: 0; padding-left: 0; font-size: var(--sbx-fs-md); }
+.sbx-rv-custom .sbx-viewport-width input { width: 72px; text-align: left; }
+
 .sbx-topbar__history-group {
   display: inline-flex;
   align-items: center;

@@ -1,10 +1,11 @@
 // Canvas zoom — framework-free.
 //
-// The canvas scales the whole device frame with a CSS transform, so zoom is a
-// factor of at most 1 (larger zoom needs scrolling frames; deferred to the
-// responsive phase). `fit` follows the stage width.
+// The canvas scales the whole device frame with a CSS transform. Zoom used
+// to cap at 100% ("larger zoom needs scrolling frames"); since Batch E3 the
+// stage scrolls in both axes and keeps the frame's full height at scale > 1,
+// so steps above 100% work. `fit` follows the stage width.
 
-export const ZOOM_STEPS = Object.freeze([25, 50, 75, 100]);
+export const ZOOM_STEPS = Object.freeze([25, 50, 75, 100, 125, 150, 200]);
 
 /** The percent a zoom mode renders at: `fit` uses the computed fit scale. */
 export function zoomPercent(mode, fitScale) {

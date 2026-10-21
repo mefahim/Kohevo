@@ -27,6 +27,22 @@ export function viewportByKey(key) {
   return VIEWPORTS.find((v) => v.key === key) || VIEWPORTS[0];
 }
 
+/** Custom viewport widths (Batch E3) stay inside a sane device range. */
+export const CUSTOM_VIEWPORT_MIN = 240;
+export const CUSTOM_VIEWPORT_MAX = 2560;
+
+export function clampViewportWidth(width) {
+  const n = Math.round(Number(width));
+  if (!Number.isFinite(n)) return 1024;
+  return Math.min(CUSTOM_VIEWPORT_MAX, Math.max(CUSTOM_VIEWPORT_MIN, n));
+}
+
+/** A viewport for an author-chosen width; its breakpoint derives from the width. */
+export function customViewport(width) {
+  const w = clampViewportWidth(width);
+  return Object.freeze({ key: 'custom', label: 'Custom', width: w, breakpoint: breakpointForWidth(w) });
+}
+
 /**
  * The value a responsive map resolves to at a breakpoint (mobile-first
  * cascade: the nearest defined breakpoint at or below it).

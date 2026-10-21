@@ -4,8 +4,9 @@
 import { memo, useState } from 'react';
 import { useEditor, useEngineState } from './EditorContext.jsx';
 import { STATUS } from '../core/sync.mjs';
-import { VIEWPORTS } from '../core/viewport.mjs';
+import { VIEWPORTS, viewportByKey } from '../core/viewport.mjs';
 import { t, errorMessage } from '../core/messages.mjs';
+import { ViewportWidthInput } from './ViewportWidthInput.jsx';
 import { isAiRevision } from '../core/review.mjs';
 import {
   IconArrowLeft,
@@ -85,6 +86,8 @@ export const TopBar = memo(function TopBar({
   onToggleInspector = null,
   viewportKey,
   onViewport,
+  customWidth = 1024,
+  onCustomViewport = () => {},
   onSave,
   onUndo,
   onRedo,
@@ -271,6 +274,11 @@ export const TopBar = memo(function TopBar({
               {v.key === 'desktop' ? <IconMonitor size={15} /> : v.key === 'tablet' ? <IconTablet size={15} /> : <IconSmartphone size={15} />}
             </button>
           ))}
+          <ViewportWidthInput
+            width={viewportKey === 'custom' ? customWidth : viewportByKey(viewportKey).width}
+            active={viewportKey === 'custom'}
+            onCommit={onCustomViewport}
+          />
         </div>
 
         {onToggleInspector && (

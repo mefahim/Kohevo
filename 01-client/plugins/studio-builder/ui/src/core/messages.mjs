@@ -27,6 +27,7 @@ const EN = {
   publishing_done: 'Published.',
   history: 'History',
   viewport: 'Viewport',
+  custom_width: 'Custom width',
   desktop: 'Desktop',
   tablet: 'Tablet',
   mobile: 'Mobile',

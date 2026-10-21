@@ -1280,6 +1280,7 @@ $sbBoot = [
         'zoom_in' => __('studio_ui_zoom_in', 'Zoom in'),
         'zoom_out' => __('studio_ui_zoom_out', 'Zoom out'),
         'zoom_level' => __('studio_ui_zoom_level', 'Canvas zoom'),
+        'custom_width' => __('studio_ui_custom_width', 'Custom width'),
         'shortcuts_help' => __('studio_ui_shortcuts_help', 'Keyboard shortcuts'),
         'shortcuts_title' => __('studio_ui_shortcuts_title', 'Keyboard shortcuts'),
         'shortcut_undo' => __('studio_ui_shortcut_undo', 'Undo'),

@@ -1486,6 +1486,7 @@ return [
     'studio_ui_zoom_in' => 'Zoom avant',
     'studio_ui_zoom_out' => 'Zoom arrière',
     'studio_ui_zoom_level' => 'Zoom du canevas',
+    'studio_ui_custom_width' => 'Largeur personnalisée',
     'studio_ui_shortcuts_help' => 'Raccourcis clavier',
     'studio_ui_shortcuts_title' => 'Raccourcis clavier',
     'studio_ui_shortcut_undo' => 'Annuler',
