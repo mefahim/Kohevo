@@ -796,6 +796,17 @@ final class DocumentValidator
             $errors[] = ValidationResult::issue("{$path}.tag", 'invalid_tag', 'block.tag must be one of: ' . implode(', ', CanonicalDocumentSchema::ALLOWED_BLOCK_TAGS) . '.');
         }
 
+        // Per-element author CSS (Batch B): a plain string under a byte ceiling.
+        // Sanitization happens in the normalizer (StudioCodePolicy), mirroring
+        // the site-wide stylesheet's reduce-on-store contract.
+        if (array_key_exists('custom_css', $block)) {
+            if (!is_string($block['custom_css'])) {
+                $errors[] = ValidationResult::issue("{$path}.custom_css", 'invalid_custom_css', 'block.custom_css must be a string.');
+            } elseif (strlen($block['custom_css']) > CanonicalDocumentSchema::CUSTOM_CSS_MAX_BYTES) {
+                $errors[] = ValidationResult::issue("{$path}.custom_css", 'custom_css_too_large', 'block.custom_css must be at most ' . CanonicalDocumentSchema::CUSTOM_CSS_MAX_BYTES . ' bytes.');
+            }
+        }
+
         // Interaction-state overlays (hover/focus/active/disabled).
         if (array_key_exists('style_states', $block)) {
             foreach (StyleSurface::stateIssues($block['style_states'], "{$path}.style_states") as $issue) {

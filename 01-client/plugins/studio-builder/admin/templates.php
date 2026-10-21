@@ -16,6 +16,7 @@ use Slate\Module\StudioBuilder\Application\StudioActor;
 use Slate\Module\StudioBuilder\Document\CanonicalDocumentSchema;
 use Slate\Module\StudioBuilder\Document\CanonicalJson;
 use Slate\Module\StudioBuilder\Runtime\StudioRuntimeFactory;
+use Slate\Module\StudioBuilder\Theme\PopupTrigger;
 
 Auth::require();
 Auth::requirePerm('studio-builder.view');
@@ -78,6 +79,14 @@ $typeConfigs = [
         'category'      => 'section',
         'role'          => 'section_preset',
         'label'         => 'Section Preset',
+    ],
+    'popup' => [
+        'template_type' => 'page_template',
+        'page_type'     => 'system',
+        'doc_type'      => 'system',
+        'category'      => 'popup',
+        'role'          => 'popup',
+        'label'         => 'Popup',
     ],
 ];
 
@@ -247,6 +256,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'condition_rule'    => $condition,
                         'conditions'        => ['rules' => $conditionRules],
                     ];
+                    if ($uiType === 'popup') {
+                        // Trigger lives in the PAGE settings only: document
+                        // settings are a closed vocabulary and have no
+                        // 'trigger' key. The resolver reads it from here.
+                        $pageSettings['trigger'] = PopupTrigger::normalize([
+                            'type'           => (string) ($_POST['trigger_type'] ?? 'load'),
+                            'delay_ms'       => (int) round(((float) ($_POST['trigger_delay_s'] ?? 2)) * 1000),
+                            'scroll_percent' => (int) ($_POST['trigger_scroll_percent'] ?? 50),
+                            'frequency'      => (string) ($_POST['trigger_frequency'] ?? 'session'),
+                            'size'           => (string) ($_POST['trigger_size'] ?? 'md'),
+                        ]);
+                    }
 
                     $pageId = Database::insert('studiobuilder_pages', [
                         'tenant_id'                => $tenantId,
@@ -516,6 +537,7 @@ require SLATE_ROOT . '/admin/partials/header.php';
                         <option value="archive">Archive & Loop Grid (Dynamic collection feed)</option>
                         <option value="not_found">404 Error (Custom Not Found page)</option>
                         <option value="section_preset">Section & Component Preset (Reusable block layout)</option>
+                        <option value="popup">Popup (Shown over pages by trigger & condition)</option>
                     </select>
                 </div>
                 <div class="sb-field">
@@ -530,6 +552,50 @@ require SLATE_ROOT . '/admin/partials/header.php';
                     </select>
                 </div>
             </div>
+            <fieldset style="margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+                <legend style="font-weight: 600; font-size: 0.85rem; padding: 0 6px;">Popup trigger <span style="font-weight: 400; color: var(--sb-muted);">(Popup type only)</span></legend>
+                <div class="sb-form-grid">
+                    <div class="sb-field">
+                        <label class="sb-field__label">Show when</label>
+                        <select name="trigger_type" class="form-control" style="background: #ffffff;">
+                            <option value="load">Page loads</option>
+                            <option value="delay">After a delay</option>
+                            <option value="scroll">Visitor scrolls down</option>
+                            <option value="exit">Exit intent (mouse leaves to the top)</option>
+                            <option value="click">A button/link is clicked</option>
+                            <option value="none">Never automatically</option>
+                        </select>
+                    </div>
+                    <div class="sb-field">
+                        <label class="sb-field__label">Delay (seconds)</label>
+                        <input type="number" name="trigger_delay_s" class="form-control" value="2" min="0" max="60" step="0.5">
+                    </div>
+                    <div class="sb-field">
+                        <label class="sb-field__label">Scroll depth (%)</label>
+                        <input type="number" name="trigger_scroll_percent" class="form-control" value="50" min="1" max="100">
+                    </div>
+                    <div class="sb-field">
+                        <label class="sb-field__label">How often per visitor</label>
+                        <select name="trigger_frequency" class="form-control" style="background: #ffffff;">
+                            <option value="always">Every page view</option>
+                            <option value="session" selected>Once per visit (session)</option>
+                            <option value="once">Once ever</option>
+                        </select>
+                    </div>
+                    <div class="sb-field">
+                        <label class="sb-field__label">Popup size</label>
+                        <select name="trigger_size" class="form-control" style="background: #ffffff;">
+                            <option value="sm">Small</option>
+                            <option value="md" selected>Medium</option>
+                            <option value="lg">Large</option>
+                            <option value="full">Full screen</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--sb-muted);">
+                    For "clicked": give any button/link on the page the attribute <code>data-sb-modal-open</code> with the popup's element id (shown in the page source as <code>sb-popup-…</code>), or link to <code>#sb-popup-…</code>.
+                </div>
+            </fieldset>
             <div class="sb-field">
                 <label class="sb-field__label">Description / Notes</label>
                 <input type="text" name="description" class="form-control" placeholder="Optional notes about design intent or typography...">

@@ -18,7 +18,7 @@ use Slate\Module\StudioBuilder\Document\CanonicalDocumentSchema;
 
 final class StudioStylesheet
 {
-    public const VERSION = '17';
+    public const VERSION = '18';
 
     private const MIN_WIDTH = ['sm' => 640, 'md' => 768, 'lg' => 1024];
 
@@ -386,6 +386,9 @@ final class StudioStylesheet
             . '.sb-modal__header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb}'
             . '.sb-modal__close{background:none;border:none;font-size:1.5rem;text-decoration:none;cursor:pointer;line-height:1;color:#6b7280}'
             . '.sb-modal__body{padding:1.25rem}'
+            // Popups (Batch B) reuse the modal shell; only the floating close
+            // button is popup-specific (a popup has no header row).
+            . '.sb-popup__close{position:absolute;top:.5rem;right:.75rem;z-index:2;background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:#6b7280}'
             . '.sb-offcanvas{display:none;position:fixed;inset:0;z-index:9999}'
             . '.sb-offcanvas:target,.sb-offcanvas[data-sb-open]{display:block}'
             . '.sb-offcanvas__backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5)}'

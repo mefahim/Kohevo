@@ -34,6 +34,7 @@ declare(strict_types=1);
 namespace Slate\Module\StudioBuilder\Render;
 
 use Slate\Module\StudioBuilder\Document\CanonicalDocumentSchema;
+use Slate\Module\StudioBuilder\Http\StudioCodePolicy;
 use Slate\Module\StudioBuilder\Document\StyleSurface;
 use Slate\Module\StudioBuilder\Document\StyleValueGuard;
 use Slate\Module\StudioBuilder\Registry\BlockDefinitionInterface;
@@ -167,6 +168,18 @@ final class DocumentRenderer
         $stateRules   = is_array($block['style_states'] ?? null) ? StyleSurface::stateRules($block['style_states']) : [];
         $scopedClass  = $collector->scopedRule((string) ($block['id'] ?? ''), StyleSurface::declarations($blockStyle, $this->backgroundImageUrl($blockStyle)), StyleSurface::hasTransition($blockStyle), $stateRules, is_array($block['responsive'] ?? null) ? StyleSurface::responsiveRules($block['responsive']) : []);
         $scopedClasses = $scopedClass !== '' ? [$scopedClass] : [];
+
+        // Per-element author CSS (Batch B): sanitized through the code policy
+        // and scoped to this block instance; the scope class rides the wrapper.
+        $authorCss = isset($block['custom_css']) && is_string($block['custom_css']) ? trim($block['custom_css']) : '';
+        if ($authorCss !== '' && preg_match(CanonicalDocumentSchema::BLOCK_ID_PATTERN, (string) ($block['id'] ?? '')) === 1) {
+            $scopeClass   = 'sb-u-' . (string) $block['id'];
+            $scopedAuthor = ScopedAuthorCss::scope(StudioCodePolicy::sanitizeCustomCss($authorCss), $scopeClass);
+            if ($scopedAuthor !== '') {
+                $collector->authorCssRule((string) $block['id'], $scopedAuthor);
+                $scopedClasses[] = $scopeClass;
+            }
+        }
 
         $classes = array_merge(
             ['sb-block', 'sb-block--' . str_replace(['.', '_'], '-', $type)],

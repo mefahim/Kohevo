@@ -27,7 +27,7 @@ test('a heading shows content, the full style stack and the advanced fields, in 
   assert.deepEqual(ids('content', ctx), ['content']);
   assert.deepEqual(ids('style', ctx), ['align', 'typography', 'background', 'border', 'shadow', 'opacity', 'states', 'tokens']);
   // Background and Border are Style for every block; a leaf block keeps Layout and Dimensions under Advanced, after the one group of everyday fields.
-  assert.deepEqual(ids('advanced', ctx), ['advanced', 'layout', 'dimensions', 'position', 'effects', 'motion', 'responsive', 'identity', 'tag', 'attributes']);
+  assert.deepEqual(ids('advanced', ctx), ['advanced', 'layout', 'dimensions', 'position', 'effects', 'motion', 'responsive', 'identity', 'tag', 'custom-css', 'attributes']);
 });
 
 test('a block with no text of its own has no Typography section, a text block does; a map has no Background', () => {
@@ -46,7 +46,7 @@ test('a block whose definition narrows style_capabilities hides the sections it 
   assert.deepEqual(ids('style', narrow), ['align', 'opacity', 'states']);
   const bare = inspectorContext({ id: 'blk_1', type: 'x.y', style: {} }, { style_capabilities: [], binding_slots: [] });
   assert.deepEqual(ids('style', bare), ['states']); // states needs no capability
-  assert.deepEqual(ids('advanced', bare), ['advanced', 'motion', 'responsive', 'identity', 'tag', 'attributes']); // nor do the everyday fields
+  assert.deepEqual(ids('advanced', bare), ['advanced', 'motion', 'responsive', 'identity', 'tag', 'custom-css', 'attributes']); // nor do the everyday fields
 });
 
 test('the Data section appears only for a block with binding slots', () => {

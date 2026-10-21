@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 namespace Slate\Module\StudioBuilder\Document;
 
+use Slate\Module\StudioBuilder\Http\StudioCodePolicy;
 use Slate\Module\StudioBuilder\Registry\BlockRegistry;
 
 final class DocumentNormalizer
@@ -233,6 +234,15 @@ final class DocumentNormalizer
         }
         if (array_key_exists('classNames', $block)) {
             $normalizedBlock['classNames'] = is_array($block['classNames']) ? array_values($block['classNames']) : (string) $block['classNames'];
+        }
+        // Per-element author CSS: reduced on store through the same policy as
+        // the site-wide stylesheet (idempotent, so canonical form is stable);
+        // an empty result drops the key entirely.
+        if (array_key_exists('custom_css', $block) && is_string($block['custom_css'])) {
+            $css = StudioCodePolicy::sanitizeCustomCss($block['custom_css']);
+            if (trim($css) !== '') {
+                $normalizedBlock['custom_css'] = $css;
+            }
         }
         if (array_key_exists('animation', $block) && is_array($block['animation'])) {
             $normalizedBlock['animation'] = CanonicalJson::sortKeysRecursively($block['animation']);

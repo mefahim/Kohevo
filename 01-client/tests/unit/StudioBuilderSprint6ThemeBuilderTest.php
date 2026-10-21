@@ -49,7 +49,7 @@ unit('sprint6 unit: ThemeTemplateType enumeration, validation, and chrome checks
 
     assert_true(!ThemeTemplateType::isValid(''));
     assert_true(!ThemeTemplateType::isValid('custom'));
-    assert_true(!ThemeTemplateType::isValid('popup'));
+    assert_true(ThemeTemplateType::isValid('popup'));
     assert_true(!ThemeTemplateType::isValid('modal'));
 
     assert_true(ThemeTemplateType::isChrome('header'));

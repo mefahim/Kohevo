@@ -89,6 +89,7 @@ final class DocumentOperationApplier
             DocumentOperation::OP_UPDATE_BLOCK_META => self::updateBlockMeta($document, $payload),
             DocumentOperation::OP_UPDATE_BLOCK_STYLE_STATES => self::updateBlockStyleStates($document, $payload),
             DocumentOperation::OP_UPDATE_BLOCK_TAG => self::updateBlockTag($document, $payload),
+            DocumentOperation::OP_UPDATE_BLOCK_CUSTOM_CSS => self::updateBlockCustomCss($document, $payload),
             DocumentOperation::OP_RESET_BLOCK_STYLE_PROPERTY => self::resetBlockStyleProperty($document, $payload),
             DocumentOperation::OP_UPDATE_SECTION_STYLE => self::updateSectionStyle($document, $payload),
             DocumentOperation::OP_UPDATE_SECTION_ANIMATION => self::updateSectionObjectField($document, $payload, 'animation'),
@@ -874,6 +875,29 @@ final class DocumentOperationApplier
                 unset($block['tag']);
             } else {
                 $block['tag'] = $tag;
+            }
+            return $block;
+        });
+    }
+
+    /**
+     * Replace a block's author CSS; null/empty removes the key. Sanitization is
+     * the normalizer's job on save, mirroring the site-wide stylesheet.
+     */
+    private static function updateBlockCustomCss(array $document, array $payload): array
+    {
+        $blockId = self::requireString($payload, 'block_id', '$.payload.block_id');
+        $css = $payload['custom_css'] ?? null;
+        if ($css !== null && (!is_string($css) || strlen($css) > CanonicalDocumentSchema::CUSTOM_CSS_MAX_BYTES)) {
+            throw new StudioValidationException([
+                ['path' => '$.payload.custom_css', 'code' => 'invalid_custom_css', 'message' => 'payload.custom_css must be null or a string of at most ' . CanonicalDocumentSchema::CUSTOM_CSS_MAX_BYTES . ' bytes.'],
+            ]);
+        }
+        return self::changeBlockInDocument($document, $blockId, static function (array $block) use ($css): array {
+            if ($css === null || trim($css) === '') {
+                unset($block['custom_css']);
+            } else {
+                $block['custom_css'] = $css;
             }
             return $block;
         });

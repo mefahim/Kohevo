@@ -1062,6 +1062,71 @@
     if (off.length) mount(function () { off.forEach(function (un) { un(); }); });
   }
 
+  /* ── Popups (Batch B) ───────────────────────────────────────────────────
+   * Panels the server rendered per request with data-sb-popup-* config.
+   * initOverlays has already registered them (they carry .sb-modal, so their
+   * closers and click triggers work); this feature only decides WHEN to open
+   * one automatically, honouring the per-visitor frequency cap.
+   */
+  function popupSeen(key, frequency) {
+    try {
+      var store = frequency === 'once' ? global.localStorage : global.sessionStorage;
+      return !!store.getItem(key);
+    } catch (err) { return false; }
+  }
+
+  function markPopupSeen(key, frequency) {
+    if (frequency === 'always') return;
+    try {
+      var store = frequency === 'once' ? global.localStorage : global.sessionStorage;
+      store.setItem(key, '1');
+    } catch (err) { /* storage unavailable: behaves as 'always' */ }
+  }
+
+  function initPopups(root) {
+    var panels = root.querySelectorAll('[data-sb-popup]');
+    if (!panels.length) return;
+    var off = [];
+    panels.forEach(function (panel) {
+      var frequency = panel.getAttribute('data-sb-popup-frequency') || 'session';
+      var key = 'sb-popup:' + panel.id;
+      if (frequency !== 'always' && popupSeen(key, frequency)) return;
+      var trigger = panel.getAttribute('data-sb-popup-trigger') || 'load';
+      var opened = false;
+      function open() {
+        if (opened) return;
+        opened = true;
+        markPopupSeen(key, frequency);
+        openOverlay(panel, null);
+      }
+      if (trigger === 'load') {
+        open();
+      } else if (trigger === 'delay') {
+        var timer = global.setTimeout(open, parseInt(panel.getAttribute('data-sb-popup-delay'), 10) || 0);
+        off.push(function () { global.clearTimeout(timer); });
+      } else if (trigger === 'scroll') {
+        var pct = parseInt(panel.getAttribute('data-sb-popup-scroll'), 10) || 50;
+        var onScroll = function () {
+          var max = document.documentElement.scrollHeight - global.innerHeight;
+          var ratio = max > 0 ? (global.scrollY / max) * 100 : 100;
+          if (ratio >= pct) { open(); global.removeEventListener('scroll', onScroll); }
+        };
+        global.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+        off.push(function () { global.removeEventListener('scroll', onScroll); });
+      } else if (trigger === 'exit') {
+        var onOut = function (e) {
+          if (!e.relatedTarget && e.clientY <= 8) { open(); document.removeEventListener('mouseout', onOut); }
+        };
+        document.addEventListener('mouseout', onOut);
+        off.push(function () { document.removeEventListener('mouseout', onOut); });
+      }
+      // 'click' and 'none' never auto-open: initOverlays already wires
+      // [data-sb-modal-open] triggers and #fragment links for this panel.
+    });
+    if (off.length) mount(function () { off.forEach(function (un) { un(); }); });
+  }
+
 /* ── Boot / teardown ─────────────────────────────────────────────────────
    * `StudioRuntime.mount()` and `.disable()` are what the A/B toggle calls.
    * disable() must leave the page byte-identical to a no-JS Studio render,
@@ -1075,6 +1140,7 @@
     ['parallax', initParallax],
     ['stickyHeader', initStickyHeader],
     ['overlays', initOverlays],
+    ['popups', initPopups],
     ['galleryLightbox', initGalleryLightbox],
     ['lightbox', initLightbox],
     ['tabs', initTabs],
