@@ -16,12 +16,20 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 3) . '/config.php';
-require_once dirname(__DIR__, 2) . '/studio-freelancer-portfolio/StudioFreelancerPortfolio.php';
+// This console is the data engine for the freelancer-portfolio add-on's site. The
+// add-on is optional: load it when present and degrade to a notice when it is not,
+// instead of fataling on a missing sibling plugin.
+$sbPortfolioLib = dirname(__DIR__, 2) . '/studio-freelancer-portfolio/StudioFreelancerPortfolio.php';
+$sbPortfolioAvailable = is_file($sbPortfolioLib);
+if ($sbPortfolioAvailable) {
+    require_once $sbPortfolioLib;
+}
 require_once __DIR__ . '/_nav.php';
 
 use Slate\Data\Database;
 use Slate\Module\StudioBuilder\Application\StudioActor;
 use Slate\Module\StudioBuilder\Runtime\StudioRuntimeFactory;
+use Slate\Module\StudioBuilder\Schema\FieldSchema;
 
 Auth::require();
 ModuleGuard::require('studio-builder');
@@ -31,7 +39,21 @@ $pageTitle   = __('studio_content', 'Studio Content');
 $currentNav  = 'studio-content';
 $flash       = null;
 
-$tenantId = (int) (Auth::user()['tenant_id'] ?? (defined('TENANT_ID') ? TENANT_ID : 1));
+$tenantId = current_tenant_id();
+
+if (!$sbPortfolioAvailable) {
+    require SLATE_ROOT . '/admin/partials/header.php';
+    echo '<div class="sb-admin-wrapper">';
+    sb_render_admin_nav('content');
+    echo '<div class="alert alert-error" role="alert" style="margin-top: 20px;">The Freelancer Portfolio add-on is not installed, so this content console is unavailable. Install the studio-freelancer-portfolio plugin to manage portfolio content here.</div>';
+    echo '</div>';
+    require SLATE_ROOT . '/admin/partials/footer.php';
+    exit;
+}
+
+// URLs saved here render as img src / href on public pages: hold them to the builder's
+// own safe-URL rule (http/https, site-relative paths and anchors; never script schemes).
+$sbValidUrl = static fn (string $u): bool => $u === '' || FieldSchema::isSafeUrl($u);
 $typeFilter = (string) ($_GET['type'] ?? 'portfolio');
 if (!in_array($typeFilter, ['portfolio', 'service', 'testimonial', 'case_study', 'profile'], true)) {
     $typeFilter = 'portfolio';
@@ -61,8 +83,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_sav
         $flash = ['type' => 'error', 'msg' => 'Security check failed.'];
     } else {
         $name = trim((string) ($_POST['name'] ?? ''));
+        $avatarUrl = trim((string) ($_POST['avatar_url'] ?? ''));
         if ($name === '') {
             $flash = ['type' => 'error', 'msg' => 'Full Name is required.'];
+        } elseif (!$sbValidUrl($avatarUrl)) {
+            $flash = ['type' => 'error', 'msg' => 'Avatar URL is not a safe URL.'];
         } else {
             $profileData = [
                 'name'          => $name,
@@ -77,7 +102,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_sav
                 'stat_delivery' => trim((string) ($_POST['stat_delivery'] ?? '')),
                 'location'      => trim((string) ($_POST['location'] ?? '')),
                 'email'         => trim((string) ($_POST['email'] ?? '')),
-                'avatar_url'    => trim((string) ($_POST['avatar_url'] ?? '')),
+                'avatar_url'    => $avatarUrl,
             ];
             Database::setSetting('studio_profile', json_encode($profileData), $tenantId);
             $flash = ['type' => 'success', 'msg' => 'Brand profile and bio updated successfully.'];
@@ -109,9 +134,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_add
                     'link_url'    => trim((string) ($_POST['link_url'] ?? '/case-studies')),
                     'link_text'   => 'View Case Study →',
                 ];
-                array_unshift($items, $newItem);
-                Database::setSetting('studio_content_portfolio', json_encode($items), $tenantId);
-                $flash = ['type' => 'success', 'msg' => "Project '{$title}' saved to dynamic data repository."];
+                if (!$sbValidUrl($newItem['image_url']) || !$sbValidUrl($newItem['link_url'])) {
+                    $flash = ['type' => 'error', 'msg' => 'Image and link URLs must be safe URLs (https://, http:// or a site path).'];
+                } else {
+                    array_unshift($items, $newItem);
+                    Database::setSetting('studio_content_portfolio', json_encode($items), $tenantId);
+                    $flash = ['type' => 'success', 'msg' => "Project '{$title}' saved to dynamic data repository."];
+                }
             } elseif ($typeFilter === 'service') {
                 $items = StudioFreelancerPortfolio::getServicesList($tenantId);
                 $nextNum = str_pad((string) (count($items) + 1), 2, '0', STR_PAD_LEFT);
@@ -133,9 +162,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_add
                     'rating'     => max(1, min(5, (int) ($_POST['rating'] ?? 5))),
                     'avatar_url' => trim((string) ($_POST['avatar_url'] ?? '')),
                 ];
-                array_unshift($items, $newItem);
-                Database::setSetting('studio_content_testimonial', json_encode($items), $tenantId);
-                $flash = ['type' => 'success', 'msg' => "Client endorsement from '{$newItem['author']}' added."];
+                if (!$sbValidUrl($newItem['avatar_url'])) {
+                    $flash = ['type' => 'error', 'msg' => 'Avatar URL is not a safe URL.'];
+                } else {
+                    array_unshift($items, $newItem);
+                    Database::setSetting('studio_content_testimonial', json_encode($items), $tenantId);
+                    $flash = ['type' => 'success', 'msg' => "Client endorsement from '{$newItem['author']}' added."];
+                }
             }
         }
     }
@@ -183,7 +216,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action_upd
         $imgUrl   = trim((string) ($_POST['image_url'] ?? ''));
         $itemType = trim((string) ($_POST['item_type'] ?? 'portfolio'));
 
-        if ($index >= 0 && $imgUrl !== '') {
+        if ($index >= 0 && $imgUrl !== '' && !$sbValidUrl($imgUrl)) {
+            $flash = ['type' => 'error', 'msg' => 'Image URL is not a safe URL.'];
+        } elseif ($index >= 0 && $imgUrl !== '') {
             if ($itemType === 'portfolio' || $itemType === 'case_study') {
                 $items = StudioFreelancerPortfolio::getProjects($tenantId);
                 if (isset($items[$index])) {

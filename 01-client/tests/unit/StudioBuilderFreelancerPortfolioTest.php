@@ -260,3 +260,24 @@ unit('freelancer portfolio: multi-page documents (services, case studies, testim
     WidgetSdk::reset();
 });
 
+
+unit('portfolio showcase: the shipped template is generic and its tokens take the props', function (): void {
+    require_once dirname(__DIR__, 2) . '/plugins/studio-builder/StudioBuilderPortfolioWidgets.php';
+    $render = static fn (array $props): string => \Slate\Module\StudioBuilder\StudioBuilderPortfolioWidgets::renderShowcase(
+        s_port_scope(['type' => 'portfolio.rakib_showcase', 'props' => $props])
+    );
+
+    $html = $render([
+        'first_name' => 'Ada', 'last_name' => 'Lovelace', 'role' => 'Engineer',
+        'email' => 'ada@example.com', 'domain' => 'example.com', 'domain_url' => 'https://example.com',
+        'location' => 'London', 'coordinates' => '51.5072 N',
+    ]);
+    assert_true(str_contains($html, 'Ada<br>Lovelace'), 'name tokens substituted');
+    assert_true(str_contains($html, 'ada@example.com'), 'email token substituted');
+    assert_true(!str_contains($html, '{{'), 'no token is left unsubstituted');
+    assert_true(!str_contains($html, 'rakib') && !str_contains($html, 'Rakib'), 'no personal identity ships in the template');
+    assert_true(!str_contains($html, 'data:image/jpeg'), 'no personal photo ships in the template');
+
+    $titled = $render(['title' => 'Ada — Portfolio', 'brand_text' => 'Brand / 2026']);
+    assert_true(str_contains($titled, 'Ada — Portfolio'), 'the title prop takes the brand header when set');
+});

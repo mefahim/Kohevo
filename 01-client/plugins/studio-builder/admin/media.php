@@ -61,7 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ];
                     try {
                         if (class_exists('Media')) {
-                            $res = Media::upload('__sb_media_upload');
+                            // The page's upload contract, stated here rather than inherited
+                            // silently from core defaults: images and office documents,
+                            // 10 MB, and SVGs sanitised inside Media::upload().
+                            $res = Media::upload('__sb_media_upload', [
+                                'allowed_mimes' => Media::allowedMimes(),
+                                'allowed_exts'  => Media::allowedExts(),
+                                'max_bytes'     => \Slate\Module\StudioBuilder\Http\StudioMediaApi::MAX_UPLOAD_BYTES,
+                            ]);
                             if (!empty($res['id']) || !empty($res['path'])) {
                                 $uploadedCount++;
                             } else {
@@ -83,8 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mediaId = (int) ($_POST['media_id'] ?? 0);
             if ($mediaId > 0) {
                 try {
-                    Database::delete('media_files', 'tenant_id = ? AND id = ?', [$tenantId, $mediaId]);
-                    $flash = ['type' => 'success', 'msg' => "Asset #{$mediaId} deleted."];
+                    // Tenant check first; the Media service then removes the file
+                    // together with its row (and refuses while the file is in use),
+                    // instead of leaving the uploaded file orphaned on disk.
+                    $owned = class_exists('Media') && Database::value('SELECT id FROM media_files WHERE tenant_id = ? AND id = ?', [$tenantId, $mediaId]);
+                    if (!$owned) {
+                        $flash = ['type' => 'error', 'msg' => "Asset #{$mediaId} not found."];
+                    } else {
+                        $res = Media::delete($mediaId);
+                        $flash = !empty($res['ok'])
+                            ? ['type' => 'success', 'msg' => "Asset #{$mediaId} deleted."]
+                            : ['type' => 'error', 'msg' => (string) ($res['error'] ?? 'Failed to delete asset.')];
+                    }
                 } catch (\Throwable $e) {
                     $flash = ['type' => 'error', 'msg' => 'Failed to delete asset: ' . $e->getMessage()];
                 }

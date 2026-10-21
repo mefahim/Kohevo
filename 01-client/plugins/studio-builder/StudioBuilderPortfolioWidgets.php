@@ -72,63 +72,26 @@ final class StudioBuilderPortfolioWidgets
             $html = str_replace('<img id="face"', '<img id="face" src="' . $photoSrc . '"', $html);
         }
 
-        // Interpolate editable props
-        $brandText    = htmlspecialchars($scope->string('brand_text', 'Portfolio / 2026'), ENT_QUOTES, 'UTF-8');
-        $firstName    = htmlspecialchars($scope->string('first_name', ''), ENT_QUOTES, 'UTF-8');
-        $lastName     = htmlspecialchars($scope->string('last_name', ''), ENT_QUOTES, 'UTF-8');
-        $role         = nl2br(htmlspecialchars($scope->string('role', ''), ENT_QUOTES, 'UTF-8'));
-        $verticalText = htmlspecialchars($scope->string('vertical_text', 'Digital design • Development'), ENT_QUOTES, 'UTF-8');
-        $location     = nl2br(htmlspecialchars($scope->string('location', ''), ENT_QUOTES, 'UTF-8'));
-        $coordinates  = nl2br(htmlspecialchars($scope->string('coordinates', ''), ENT_QUOTES, 'UTF-8'));
-        $domain       = htmlspecialchars($scope->string('domain', ''), ENT_QUOTES, 'UTF-8');
-        $domainUrl    = htmlspecialchars($scope->string('domain_url', ''), ENT_QUOTES, 'UTF-8');
-        $email        = htmlspecialchars($scope->string('email', ''), ENT_QUOTES, 'UTF-8');
-
-        $html = str_replace(
-            '<span class="e-pf a c t" style="left:7%;top:4%">Portfolio / 2026</span>',
-            '<span class="e-pf a c t" style="left:7%;top:4%">' . $brandText . '</span>',
-            $html
-        );
-        $html = str_replace(
-            '<h1 class="e-name a c" style="left:6.9%;top:15.6%">rakib<br>hasan</h1>',
-            '<h1 class="e-name a c" style="left:6.9%;top:15.6%">' . $firstName . '<br>' . $lastName . '</h1>',
-            $html
-        );
-        $html = str_replace(
-            '<p class="e-role a c t role" style="left:7%;top:25.4%">Freelance developer<br>&amp; designer</p>',
-            '<p class="e-role a c t role" style="left:7%;top:25.4%">' . $role . '</p>',
-            $html
-        );
-        $html = str_replace(
-            '<span class="e-vt a t v" style="left:92.5%;top:23.6%">Digital design • Development</span>',
-            '<span class="e-vt a t v" style="left:92.5%;top:23.6%">' . $verticalText . '</span>',
-            $html
-        );
-        $html = str_replace(
-            '<p class="e-based a c t" style="left:6.8%;top:81.1%;font-size:1.45cqw">Based in<br>Bangladesh</p>',
-            '<p class="e-based a c t" style="left:6.8%;top:81.1%;font-size:1.45cqw">' . $location . '</p>',
-            $html
-        );
-        $html = str_replace(
-            '<p class="e-coord a c t" style="right:8.9%;top:94.6%;text-align:right;font-size:1.4cqw">23.8103° N<br>90.4125° E</p>',
-            '<p class="e-coord a c t" style="right:8.9%;top:94.6%;text-align:right;font-size:1.4cqw">' . $coordinates . '</p>',
-            $html
-        );
-        $html = str_replace(
-            '<a class="e-dom a c t dom" href="https://rakibhasaan.com" style="left:16.8%;top:94.5%">rakibhasaan.com</a>',
-            '<a class="e-dom a c t dom" href="' . $domainUrl . '" style="left:16.8%;top:94.5%">' . $domain . '</a>',
-            $html
-        );
-        $html = str_replace(
-            '<a href="mailto:hello@rakibhasaan.com" data-m>hello@rakibhasaan.com</a>',
-            '<a href="mailto:' . $email . '" data-m>' . $email . '</a>',
-            $html
-        );
-        $html = str_replace(
-            '<a href="mailto:hello@rakibhasaan.com">hello@rakibhasaan.com</a>',
-            '<a href="mailto:' . $email . '">' . $email . '</a>',
-            $html
-        );
+        // Interpolate editable props. The template carries {{tokens}} for its identity
+        // fields, so a markup edit in the asset can never silently break substitution
+        // the way replacing whole rendered elements could. The schema's title is the
+        // showcase's title line: when set it takes the brand header's place.
+        $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+        $title = $scope->string('title', '');
+        $html = strtr($html, [
+            '{{brand_text}}'    => $esc($title !== '' ? $title : $scope->string('brand_text', 'Portfolio / 2026')),
+            '{{first_name}}'    => $esc($scope->string('first_name', '')),
+            '{{last_name}}'     => $esc($scope->string('last_name', '')),
+            '{{role}}'          => nl2br($esc($scope->string('role', ''))),
+            '{{vertical_text}}' => $esc($scope->string('vertical_text', 'Digital design • Development')),
+            '{{location}}'      => nl2br($esc($scope->string('location', ''))),
+            '{{coordinates}}'   => nl2br($esc($scope->string('coordinates', ''))),
+            '{{domain}}'        => $esc($scope->string('domain', '')),
+            '{{domain_url}}'    => $esc($scope->string('domain_url', '')),
+            '{{email}}'         => $esc($scope->string('email', '')),
+        ]);
+        // A token the renderer does not know (asset edited ahead of the code) renders as nothing.
+        $html = (string) preg_replace('/\{\{[a-z_]+\}\}/', '', $html);
 
         return self::stylesheetTag() . $html;
     }
