@@ -197,6 +197,7 @@ final class CanonicalDocumentSchema
         'animation',
         'style_states',
         'tag',
+        'custom_css',
     ];
 
     /** Exact attribute names an author may set on a block wrapper. */
@@ -256,6 +257,7 @@ final class CanonicalDocumentSchema
         'animation',
         'style_states',
         'tag',
+        'custom_css',
     ];
 
     /**
@@ -265,6 +267,9 @@ final class CanonicalDocumentSchema
      */
     public const Z_INDEX_MIN = -999;
     public const Z_INDEX_MAX = 999;
+
+    /** Per-block author CSS ceiling (bytes); the site-wide ceiling lives in StudioCodePolicy. */
+    public const CUSTOM_CSS_MAX_BYTES = 8192;
 
     public const ALLOWED_STYLE_KEYS = [
         'align',

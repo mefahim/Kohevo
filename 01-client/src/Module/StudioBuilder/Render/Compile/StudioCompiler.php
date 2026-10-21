@@ -57,6 +57,7 @@ final class StudioCompiler
     // 1.0.1 (Phase 9B): SeoHead drops a site-relative og:image when no base URL is configured.
     public const COMPILER_VERSION        = '1.3.0';
     public const MODE_PUBLISHED          = 'published';
+    public const MODE_FRAGMENT           = 'fragment';
     public const MAX_ARTIFACT_AGE_SECONDS = 3600;
 
     public function __construct(
@@ -124,6 +125,50 @@ final class StudioCompiler
                 'document_fingerprint' => hash('sha256', (string) $revision['document_json']),
                 'inputs'               => $plan['inputs'],
                 'seo'                  => $seo->toArray(),
+            ],
+            contentHash: $plan['hash'],
+            compilerVersion: self::COMPILER_VERSION,
+        );
+    }
+
+    /**
+     * Compile a document as a bare fragment — its sections only, no chrome and
+     * no <main> wrap — for embedding inside another page (popups). Never
+     * persisted; dynamic blocks are deferred exactly as in compile(), so the
+     * result goes through DynamicSlotResolver::fill() the same way.
+     *
+     * @param array<string, mixed> $revision
+     */
+    public function compileFragment(PageAddress $page, array $revision, RenderContext $context): CompiledPage
+    {
+        $this->assertScope($page, $revision, $context);
+        $plan = $this->plan($page, $revision, $context);
+
+        try {
+            $prepared = RenderDocumentPreparer::prepare((string) $revision['document_json'], $this->registry);
+            $document = $prepared['document'];
+            $theme    = $plan['theme'];
+            $collector = new RenderCollector();
+            $html = $this->documents->renderSections($document['sections'] ?? [], $context, $theme, $collector, true, $this->prepareComponents($plan['components']));
+        } catch (StudioRenderException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new StudioRenderException('Studio fragment compilation failed.', ['reason' => 'compiler_failure', 'page_id' => $page->id], $e);
+        }
+
+        return new CompiledPage(
+            pageId: (int) $page->id,
+            revisionId: (int) $revision['id'],
+            compileMode: self::MODE_FRAGMENT,
+            html: $html,
+            css: $collector->css(),
+            dynamicManifest: [
+                'nodes' => $collector->deferred(),
+                'nonce' => $collector->nonce,
+                'theme' => ['group' => $theme->tokenGroup, 'tokens' => $theme->tokens()],
+            ],
+            headAssets: [
+                'degraded' => $prepared['degraded'],
             ],
             contentHash: $plan['hash'],
             compilerVersion: self::COMPILER_VERSION,

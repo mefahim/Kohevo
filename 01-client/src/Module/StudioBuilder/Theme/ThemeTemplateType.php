@@ -24,6 +24,7 @@ final class ThemeTemplateType
     public const SEARCH    = 'search';
     public const NOT_FOUND = 'not_found';
     public const CODE_404  = '404';
+    public const POPUP     = 'popup';
 
     public const ALL = [
         self::HEADER,
@@ -44,6 +45,7 @@ final class ThemeTemplateType
             self::SEARCH,
             self::NOT_FOUND,
             self::CODE_404,
+            self::POPUP,
         ], true);
     }
 

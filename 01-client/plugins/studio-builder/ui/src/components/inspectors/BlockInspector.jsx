@@ -17,7 +17,7 @@ import { StyleControls } from './StyleControls.jsx';
 import { BorderExtras, DimensionsExtras, EffectsPane, LayoutPane, PositionPane, ShadowExtras, SpacingPane, StatesPane, TypographyExtras } from './SurfaceControls.jsx';
 import { COLOUR_TOKEN_CATEGORIES, OPTIONS } from '../../core/styleSurface.mjs';
 import { EntranceSelect, MotionInspector } from './MotionInspector.jsx';
-import { ClassNamesField, DataAttributes, IdentityFields } from './AdvancedControls.jsx';
+import { ClassNamesField, CustomCssField, DataAttributes, IdentityFields } from './AdvancedControls.jsx';
 import { InspectorShell } from './InspectorShell.jsx';
 import { InspectorHeader } from './InspectorHeader.jsx';
 import { InspectorBar } from './InspectorBar.jsx';
@@ -189,6 +189,9 @@ export function BlockInspector({ info }) {
         </select>
         <p className="sbx-hint">{t('wrapper_tag_hint')}</p>
       </Field>
+    ),
+    'custom-css': () => (
+      <CustomCssField id={`${idPrefix}-custom-css`} value={block.custom_css} onChange={(next) => save(ops.updateBlockCustomCss(block.id, next))} />
     ),
     opacity: () => <StyleControls style={style} capabilities={capabilities} only="opacity" onChange={saveStyle} />,
     tokens: () => Object.keys(STYLE_TOKEN_CATEGORIES).filter((k) => capabilities.includes(k)).map((key) => (

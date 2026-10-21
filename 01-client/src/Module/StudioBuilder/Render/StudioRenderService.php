@@ -34,6 +34,7 @@ use Slate\Module\StudioBuilder\Render\Compile\CompiledPage;
 use Slate\Module\StudioBuilder\Render\Compile\DynamicSlotResolver;
 use Slate\Module\StudioBuilder\Render\Compile\StudioCompiler;
 use Slate\Module\StudioBuilder\Repository\RevisionRepository;
+use Slate\Module\StudioBuilder\Theme\ThemeTemplateResolver;
 
 final class StudioRenderService
 {
@@ -47,6 +48,7 @@ final class StudioRenderService
         private readonly DynamicSlotResolver $slots,
         private readonly PageDocumentAssembler $assembler,
         ?\Closure $siteFactory = null,
+        private readonly ?ThemeTemplateResolver $templates = null,
     ) {
         $this->siteFactory = $siteFactory ?? static fn(): SiteContext => SiteContext::fromEnvironment();
     }
@@ -94,12 +96,59 @@ final class StudioRenderService
         $context = $this->withPageMeta($page, $context);
         $compiled = $this->compiler->publishedArtifact($page, $revision, $context);
         $html = $this->assembler->assemble($compiled, $this->slots->fill($compiled, $context), $context);
+        if ($this->templates !== null) {
+            $html = $this->injectPopups($html, $page, $context);
+        }
 
         $etag = StudioCacheKey::etag(
             StudioCacheKey::published($context->tenantId, $context->site->siteKey, $page->id, $compiled->revisionId, $compiled->contentHash),
             $html,
         );
         return new RenderResult($context->mode, $html, StudioCachePolicy::headersFor($context->mode, $etag), $etag);
+    }
+
+    /**
+     * Append the popups whose conditions match this page, rendered per request
+     * (the platform-signature precedent): popup edits, unpublishes and
+     * condition changes take effect on the next request without invalidating
+     * any page artifact. A failing popup is skipped, never fatal to the page.
+     */
+    private function injectPopups(string $html, PageAddress $page, RenderContext $context): string
+    {
+        try {
+            $popups = $this->templates->resolvePopups($page);
+        } catch (\Throwable) {
+            return $html;
+        }
+        if ($popups === []) {
+            return $html;
+        }
+
+        $markup = '';
+        $css    = '';
+        foreach ($popups as $popup) {
+            try {
+                $compiled = $this->compiler->compileFragment(PageAddress::fromRow($popup['page']), $popup['revision'], $context);
+                $filled   = $this->slots->fill($compiled, $context);
+                $t        = $popup['trigger'];
+                $key      = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($popup['page']['slug'] ?? $popup['page']['id']));
+                $css     .= $compiled->css . $filled->extraCss;
+                $markup  .= '<div class="sb-modal sb-modal--' . $t['size'] . ' sb-popup" id="sb-popup-' . $key . '" role="dialog" aria-modal="true" aria-hidden="true"'
+                    . ' data-sb-popup data-sb-popup-trigger="' . $t['type'] . '" data-sb-popup-delay="' . $t['delay_ms'] . '" data-sb-popup-scroll="' . $t['scroll_percent'] . '" data-sb-popup-frequency="' . $t['frequency'] . '">'
+                    . '<a href="#" class="sb-modal__backdrop" aria-label="Close" data-sb-modal-close></a>'
+                    . '<div class="sb-modal__dialog"><button type="button" class="sb-popup__close" data-sb-modal-close aria-label="Close">&times;</button>'
+                    . '<div class="sb-modal__body">' . $filled->html . '</div></div></div>';
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+        if ($markup === '') {
+            return $html;
+        }
+        $inject = ($css !== '' ? '<style data-sb="popup-css">' . str_ireplace('</style', '<\/style', $css) . '</style>' : '') . $markup;
+        $pos    = strrpos($html, '</body>');
+
+        return $pos === false ? $html . $inject : substr($html, 0, $pos) . $inject . substr($html, $pos);
     }
 
     /**

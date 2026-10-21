@@ -140,6 +140,19 @@ final class RenderCollector
     }
 
     /**
+     * Register author CSS already scoped to one block (see ScopedAuthorCss).
+     * Keyed after every generated scoped rule so author CSS wins ties at equal
+     * specificity, and keyed by node id so each block keeps its own rules.
+     */
+    public function authorCssRule(string $nodeId, string $scopedCss): void
+    {
+        if ($scopedCss === '' || preg_match(CanonicalDocumentSchema::BLOCK_ID_PATTERN, $nodeId) !== 1) {
+            return;
+        }
+        $this->cssRules['~~author:' . $nodeId] = $scopedCss;
+    }
+
+    /**
      * Defer a dynamic node; returns the marker to embed in static HTML.
      *
      * @param array<string, mixed> $block normalized block

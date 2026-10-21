@@ -114,6 +114,7 @@ final class StudioRuntimeFactory
             new DynamicSlotResolver($documents),
             new PageDocumentAssembler($overrides['signature'] ?? null),
             $overrides['site'] ?? null,
+            $themeTemplates,
         );
         $invalidator = new StudioCompilationInvalidator($dependencies, $compilations);
         $themeService = new StudioThemeService($tenants, $tokens, $themes);

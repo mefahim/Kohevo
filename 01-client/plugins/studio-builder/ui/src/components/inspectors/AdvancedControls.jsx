@@ -39,8 +39,38 @@ function CommitInput({ id, label, value, placeholder, hint, check, onCommit }) {
   );
 }
 
-export function ClassNamesField({ id, value, onChange }) {
-  const list = asList(value);
+/** Per-block custom CSS: a textarea that commits on blur, scoped to this block when rendered. */
+export function CustomCssField({ id, value, onChange }) {
+  const stored = typeof value === 'string' ? value : '';
+  const [problem, setProblem] = useState(null);
+  return (
+    <Field label={t('section_custom_css')} htmlFor={id}>
+      <textarea
+        id={id}
+        className="sbx-input sbx-textarea"
+        defaultValue={stored}
+        key={stored}
+        rows={6}
+        spellCheck={false}
+        placeholder={t('custom_css_placeholder')}
+        aria-invalid={problem ? true : undefined}
+        aria-describedby={problem ? `${id}-err` : undefined}
+        onChange={() => { if (problem) setProblem(null); }}
+        onBlur={(e) => {
+          const next = e.target.value;
+          if (next === stored) { setProblem(null); return; }
+          if (new Blob([next]).size > 8192) { setProblem(t('custom_css_too_large')); return; }
+          setProblem(null);
+          onChange(next.trim() === '' ? null : next);
+        }}
+      />
+      {problem && <p className="sbx-field__error" id={`${id}-err`} role="alert">{problem}</p>}
+      <p className="sbx-hint">{t('custom_css_hint')}</p>
+    </Field>
+  );
+}
+
+export function ClassNamesField({ id, value, onChange }) {  const list = asList(value);
   return (
     <CommitInput
       id={id}

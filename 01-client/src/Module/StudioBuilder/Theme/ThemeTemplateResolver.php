@@ -218,6 +218,92 @@ final class ThemeTemplateResolver
      * @param array<string, mixed> $evalContext
      * @return ?array{page: array<string, mixed>, revision: array<string, mixed>}
      */
+    /**
+     * Resolve every published popup whose display conditions match this page,
+     * best (most specific) first. Popups are a list, not a winner: several may
+     * show on one page. The page itself is never its own popup.
+     *
+     * @param array<string, mixed> $context Additional context (e.g. category, author_id)
+     * @return list<array{page: array<string, mixed>, revision: array<string, mixed>, trigger: array{type: string, delay_ms: int, scroll_percent: int, frequency: string, size: string}, score: int}>
+     */
+    public function resolvePopups(PageAddress $page, array $context = []): array
+    {
+        if ($this->pages === null || $this->revisions === null || !method_exists($this->pages, 'allOfType')) {
+            return [];
+        }
+
+        $evalContext = array_merge([
+            'page_id'   => $page->id,
+            'slug'      => $page->slug,
+            'page_type' => $page->pageType,
+        ], $context);
+
+        if (!isset($evalContext['category']) && method_exists($this->pages, 'find')) {
+            $pageRow = $page->id !== null ? $this->pages->find($page->id) : null;
+            if ($pageRow !== null && !empty($pageRow['settings_json'])) {
+                try {
+                    $decoded = CanonicalJson::decode((string) $pageRow['settings_json']);
+                    if (is_array($decoded)) {
+                        if (!empty($decoded['category'])) {
+                            $evalContext['category'] = (string) $decoded['category'];
+                        }
+                        if (!empty($decoded['tags'])) {
+                            $evalContext['tags'] = $decoded['tags'];
+                        }
+                    }
+                } catch (\Throwable) {
+                }
+            }
+        }
+
+        $matches = [];
+        foreach ($this->pages->allOfType('system', 50) as $row) {
+            if (($row['status'] ?? null) !== 'published' || empty($row['published_revision_id'])) {
+                continue;
+            }
+            if ($page->id !== null && (int) ($row['id'] ?? 0) === $page->id) {
+                continue;
+            }
+            $settings = [];
+            if (!empty($row['settings_json'])) {
+                try {
+                    $decoded = CanonicalJson::decode((string) $row['settings_json']);
+                    if (is_array($decoded)) {
+                        $settings = $decoded;
+                    }
+                } catch (\Throwable) {
+                }
+            }
+            if (($settings['template_type'] ?? null) !== ThemeTemplateType::POPUP) {
+                continue;
+            }
+            $score = 100;
+            $conditions = $settings['conditions'] ?? null;
+            if (!empty($conditions)) {
+                $condScore = TemplateConditionMatcher::score($conditions, $evalContext);
+                if ($condScore <= 0) {
+                    continue;
+                }
+                $score = $condScore;
+            }
+            $revision = method_exists($this->revisions, 'findByIdForPage')
+                ? $this->revisions->findByIdForPage((int) $row['id'], (int) $row['published_revision_id'])
+                : null;
+            if ($revision === null) {
+                continue;
+            }
+            $matches[] = [
+                'page'     => $row,
+                'revision' => $revision,
+                'trigger'  => PopupTrigger::normalize($settings['trigger'] ?? null),
+                'score'    => $score,
+            ];
+        }
+        usort($matches, static fn(array $a, array $b): int => ($b['score'] <=> $a['score']) ?: ((int) $a['page']['id'] <=> (int) $b['page']['id']));
+
+        return $matches;
+    }
+
     private function resolveTemplate(string $role, array $evalContext): ?array
     {
         if ($this->pages === null || $this->revisions === null) {

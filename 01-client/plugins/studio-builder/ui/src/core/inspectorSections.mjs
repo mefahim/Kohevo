@@ -97,6 +97,7 @@ export const SECTIONS = Object.freeze([
   { id: 'responsive', tab: 'advanced', titleKey: 'tab_responsive', appliesTo: () => true, summary: (ctx) => responsiveSummary(ctx.node), openFor: () => false },
   { id: 'identity', tab: 'advanced', titleKey: 'section_a11y', appliesTo: () => true, summary: (ctx) => a11ySummary(ctx.node.attributes), openFor: () => false },
   { id: 'tag', tab: 'advanced', titleKey: 'wrapper_tag', appliesTo: () => true, summary: (ctx) => (typeof ctx.node.tag === 'string' ? ctx.node.tag : ''), openFor: () => false },
+  { id: 'custom-css', tab: 'advanced', titleKey: 'section_custom_css', keywords: ['css', 'custom css', 'style'], appliesTo: () => true, summary: (ctx) => (typeof ctx.node.custom_css === 'string' && ctx.node.custom_css.trim() ? 'CSS' : ''), openFor: () => false },
   { id: 'attributes', tab: 'advanced', titleKey: 'section_data_attributes', appliesTo: () => true, summary: (ctx) => dataAttributeSummary(ctx.node.attributes), openFor: () => false },
 ]);
 

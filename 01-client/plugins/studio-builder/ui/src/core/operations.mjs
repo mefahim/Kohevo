@@ -41,6 +41,7 @@ export const OPS = Object.freeze({
   UPDATE_BLOCK_META: 'update_block_meta',
   UPDATE_BLOCK_STYLE_STATES: 'update_block_style_states',
   UPDATE_BLOCK_TAG: 'update_block_tag',
+  UPDATE_BLOCK_CUSTOM_CSS: 'update_block_custom_css',
   RESET_BLOCK_STYLE_PROPERTY: 'reset_block_style_property',
   UPDATE_SECTION_STYLE: 'update_section_style',
   UPDATE_SECTION_ANIMATION: 'update_section_animation',
@@ -69,6 +70,7 @@ const REPLACE_TARGET = {
   [OPS.UPDATE_SECTION_VISIBILITY]: 'section_id',
   [OPS.UPDATE_BLOCK_STYLE_STATES]: 'block_id',
   [OPS.UPDATE_BLOCK_TAG]: 'block_id',
+  [OPS.UPDATE_BLOCK_CUSTOM_CSS]: 'block_id',
   [OPS.UPDATE_SECTION_STYLE]: 'section_id',
   [OPS.UPDATE_SECTION_ANIMATION]: 'section_id',
   [OPS.UPDATE_SECTION_INTERACTIONS]: 'section_id',
@@ -130,6 +132,8 @@ export const updateBlockMeta = (blockId, meta) => op(OPS.UPDATE_BLOCK_META, { bl
 export const updateBlockStyleStates = (blockId, styleStates) => op(OPS.UPDATE_BLOCK_STYLE_STATES, { block_id: blockId, style_states: styleStates });
 /** Choose the block's wrapper element; null (or `div`) is the default. */
 export const updateBlockTag = (blockId, tag) => op(OPS.UPDATE_BLOCK_TAG, { block_id: blockId, tag });
+/** Replace a block's scoped custom CSS; null/empty clears it. Scoped to the block on render. */
+export const updateBlockCustomCss = (blockId, css) => op(OPS.UPDATE_BLOCK_CUSTOM_CSS, { block_id: blockId, custom_css: css });
 /** Replace a section's style ({background, padding}); `{}` clears it. */
 /** Replace a section's entrance animation; `{}` clears it. */
 export const updateSectionAnimation = (sectionId, animation) => op(OPS.UPDATE_SECTION_ANIMATION, { section_id: sectionId, animation });
@@ -147,7 +151,7 @@ export const updateSeo = (seo) => op(OPS.UPDATE_SEO, { seo });
 // ── Id bookkeeping ──────────────────────────────────────────────────────────
 
 // Keys an inserted block may carry besides its core fields (the server keeps the same list).
-const INSERT_BLOCK_EXTRAS = ['responsive', 'attributes', 'classNames', 'conditions', 'metadata', 'interactions', 'animation', 'style_states', 'tag'];
+const INSERT_BLOCK_EXTRAS = ['responsive', 'attributes', 'classNames', 'conditions', 'metadata', 'interactions', 'animation', 'style_states', 'tag', 'custom_css'];
 
 const ID_KEYS = ['section_id', 'block_id', 'parent_id'];
 
@@ -428,6 +432,18 @@ export function applyLocal(doc, operation, ctx = {}) {
         hit = true;
         const { tag: _old, ...rest } = b;
         return p.tag && p.tag !== 'div' ? { ...rest, tag: p.tag } : rest;
+      });
+      if (!hit) throw notFound(p.block_id);
+      return next;
+    }
+    case OPS.UPDATE_BLOCK_CUSTOM_CSS: {
+      if (p.custom_css !== null && p.custom_css !== undefined && (typeof p.custom_css !== 'string' || p.custom_css.length > 8192)) throw new Error('Invalid custom_css');
+      let hit = false;
+      const next = mapBlocks(doc, (b) => {
+        if (b.id !== p.block_id) return b;
+        hit = true;
+        const { custom_css: _old, ...rest } = b;
+        return p.custom_css && p.custom_css.trim() ? { ...rest, custom_css: p.custom_css } : rest;
       });
       if (!hit) throw notFound(p.block_id);
       return next;
