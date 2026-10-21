@@ -106,6 +106,16 @@ export const isServerRenderedType = (type) => {
  */
 const HIGHLIGHT_TYPES = new Set(['core.heading', 'core.hero']);
 
+/**
+ * Server-rendered types whose visible text and class-level props can still be patched in
+ * place safely (see patchServerRenderedBlock): the canvas shows the edit instantly, and
+ * the repaint after the save — which isStructuralChange keeps requiring for these types —
+ * confirms the exact server markup. A type joins this set only when every element its
+ * patch can touch is located by an exact class and written with textContent,
+ * setAttribute or a class swap from a known set.
+ */
+const LIVE_PATCH_TYPES = new Set(['core.quote', 'core.link', 'core.list', 'core.card', 'core.table', 'core.countdown', 'core.divider', 'core.spacer', 'core.icon']);
+
 /** The per-device style overrides (`responsive.tablet|mobile.style`): @media rules written only by the server. */
 function deviceStyles(block) {
   const r = isPlainObject(block.responsive) ? block.responsive : {};
@@ -151,6 +161,208 @@ function indexAllBlocks(doc) {
     walk(s && s.blocks);
   });
   return map;
+}
+
+/** The class a renderer emits for an enum prop: the value when allowed, its default otherwise (mirrors the PHP pick()). */
+function enumClass(prefix, allowed, value, fallback) {
+  return prefix + (allowed.includes(value) ? value : fallback);
+}
+
+/** Swap one class of a known set on an element. Returns 1 when the element changed. */
+function swapClassFromSet(target, classNames, wanted) {
+  if (!target) return 0;
+  let n = 0;
+  for (const c of classNames) {
+    if (c !== wanted && target.classList.contains(c)) {
+      target.classList.remove(c);
+      n = 1;
+    }
+  }
+  if (!target.classList.contains(wanted)) {
+    target.classList.add(wanted);
+    n = 1;
+  }
+  return n;
+}
+
+const COUNTDOWN_TARGET_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/;
+
+/**
+ * The UTC instant a countdown target names, exactly as CountdownRenderer computes it —
+ * or null when the target is not a real moment (the pattern, or a roll-over date like
+ * Feb 31 that PHP refuses and renders as nothing: the repaint owns those).
+ */
+function countdownTargetUtc(target) {
+  if (typeof target !== 'string' || !COUNTDOWN_TARGET_RE.test(target)) return null;
+  const d = new Date(target);
+  if (Number.isNaN(d.getTime())) return null;
+  let offMin = 0;
+  if (!target.endsWith('Z')) {
+    const sign = target.slice(-6, -5) === '+' ? 1 : -1;
+    offMin = sign * (Number(target.slice(-5, -3)) * 60 + Number(target.slice(-2)));
+  }
+  const local = new Date(d.getTime() + offMin * 60000);
+  const ymd = `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, '0')}-${String(local.getUTCDate()).padStart(2, '0')}`;
+  if (ymd !== target.slice(0, 10)) return null;
+  const iso = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return { iso, line: `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC` };
+}
+
+/**
+ * Instant patch for the server-rendered types in LIVE_PATCH_TYPES, whose visible text
+ * sits in elements an exact class names and whose class-level props come from small
+ * known sets (the Quote/Link/List/Card/Table/Countdown/Divider/Spacer/Icon renderers
+ * in the PHP render layer). Conservative by design: it only writes when the element the
+ * server rendered is already there — an element that would have to be created or
+ * removed (a first author line, an added table row) is left for the repaint after the
+ * save, which isStructuralChange still requires for these types, so the canvas never
+ * drifts from the server markup for long.
+ */
+function patchServerRenderedBlock(el, type, prevProps, nextProps) {
+  let n = 0;
+  const setText = (target, value) => {
+    if (target && typeof value === 'string' && target.textContent !== value) {
+      target.textContent = value;
+      n += 1;
+    }
+  };
+  const setAttr = (target, name, value) => {
+    if (target && target.getAttribute(name) !== value) {
+      target.setAttribute(name, value);
+      n += 1;
+    }
+  };
+
+  if (type === 'core.quote') {
+    if (nextProps.text !== prevProps.text) setText(el.querySelector('.sb-quote__text p'), nextProps.text);
+    if (nextProps.author !== prevProps.author) setText(el.querySelector('.sb-quote__author'), nextProps.author);
+    if (nextProps.role !== prevProps.role) setText(el.querySelector('.sb-quote__role'), nextProps.role);
+    return n;
+  }
+
+  if (type === 'core.link') {
+    const prev = isPlainObject(prevProps.link) ? prevProps.link : {};
+    const next = isPlainObject(nextProps.link) ? nextProps.link : {};
+    const a = el.querySelector('a');
+    if (a) {
+      if (next.label !== prev.label) setText(a, next.label);
+      if (typeof next.href === 'string' && next.href !== prev.href) setAttr(a, 'href', next.href);
+    }
+    return n;
+  }
+
+  if (type === 'core.list') {
+    if (!Array.isArray(nextProps.items)) return 0;
+    const visible = nextProps.items
+      .map((item) => (isPlainObject(item) && typeof item.text === 'string' ? item.text.trim() : ''))
+      .filter((text) => text !== '');
+    const list = el.querySelector('.sb-list');
+    const rows = list ? Array.from(list.children || []).filter((c) => c.classList && c.classList.contains('sb-list__item')) : [];
+    if (rows.length !== visible.length) return 0; // rows added or removed: the repaint owns it
+    visible.forEach((text, i) => setText(rows[i], text));
+    return n;
+  }
+
+  if (type === 'core.card') {
+    const card = el.querySelector('.sb-card');
+    if (nextProps.variant !== prevProps.variant) {
+      n += swapClassFromSet(card, ['sb-card--outlined', 'sb-card--filled', 'sb-card--shadow'], enumClass('sb-card--', ['outlined', 'filled', 'shadow'], nextProps.variant, 'outlined'));
+    }
+    if (nextProps.padding !== prevProps.padding) {
+      n += swapClassFromSet(card, ['sb-card--pad-sm', 'sb-card--pad-md', 'sb-card--pad-lg'], enumClass('sb-card--pad-', ['sm', 'md', 'lg'], nextProps.padding, 'md'));
+    }
+    return n;
+  }
+
+  if (type === 'core.table') {
+    const parseCells = (line) => String(typeof line === 'string' ? line : '').split('|').map((c) => c.trim()).slice(0, 8);
+    if (nextProps.caption !== prevProps.caption) {
+      setText(el.querySelector('.sb-table__caption'), typeof nextProps.caption === 'string' ? nextProps.caption.trim() : '');
+    }
+    const rawHeader = parseCells(nextProps.header);
+    const header = rawHeader.length === 1 && rawHeader[0] === '' ? [] : rawHeader;
+    const rows = (Array.isArray(nextProps.rows) ? nextProps.rows : [])
+      .map((row) => (isPlainObject(row) && typeof row.cells === 'string' ? row.cells : ''))
+      .filter((line) => line.trim() !== '')
+      .map(parseCells);
+    const columns = header.length > 0 ? header.length : rows.reduce((m, r) => Math.max(m, r.length), 0);
+    if (columns === 0) return n;
+    if (header.length > 0) {
+      const head = el.querySelector('thead');
+      const tr = head ? (head.children || [])[0] : null;
+      const ths = tr ? Array.from(tr.children || []) : [];
+      if (ths.length === header.length) header.forEach((cell, i) => setText(ths[i], cell));
+    }
+    const tbody = el.querySelector('tbody');
+    const trs = tbody ? Array.from(tbody.children || []) : [];
+    if (trs.length === rows.length) {
+      rows.forEach((cells, r) => {
+        const tds = Array.from((trs[r] && trs[r].children) || []);
+        if (tds.length !== columns) return;
+        for (let i = 0; i < columns; i += 1) setText(tds[i], cells[i] ?? '');
+      });
+    }
+    return n;
+  }
+
+  if (type === 'core.countdown') {
+    if (nextProps.label !== prevProps.label) {
+      setText(el.querySelector('.sb-countdown__label'), typeof nextProps.label === 'string' ? nextProps.label.trim() : '');
+    }
+    if (nextProps.done_text !== prevProps.done_text) {
+      setText(el.querySelector('.sb-countdown__done'), typeof nextProps.done_text === 'string' ? nextProps.done_text.trim() : '');
+    }
+    if (nextProps.target !== prevProps.target) {
+      const parsed = countdownTargetUtc(nextProps.target);
+      const wrap = el.querySelector('.sb-countdown');
+      if (parsed && wrap) {
+        setAttr(wrap, 'data-sb-countdown', parsed.iso);
+        const time = el.querySelector('.sb-countdown__date time');
+        if (time) {
+          setAttr(time, 'datetime', parsed.iso);
+          setText(time, parsed.line);
+        }
+      }
+    }
+    return n;
+  }
+
+  if (type === 'core.divider') {
+    const hr = el.querySelector('.sb-divider');
+    if (nextProps.style !== prevProps.style) {
+      n += swapClassFromSet(hr, ['sb-divider--solid', 'sb-divider--dashed', 'sb-divider--dotted'], enumClass('sb-divider--', ['solid', 'dashed', 'dotted'], nextProps.style, 'solid'));
+    }
+    if (nextProps.weight !== prevProps.weight) {
+      n += swapClassFromSet(hr, ['sb-divider--thin', 'sb-divider--medium', 'sb-divider--thick'], enumClass('sb-divider--', ['thin', 'medium', 'thick'], nextProps.weight, 'thin'));
+    }
+    if (nextProps.width !== prevProps.width) {
+      n += swapClassFromSet(hr, ['sb-divider--w-full', 'sb-divider--w-wide', 'sb-divider--w-narrow', 'sb-divider--w-short'], enumClass('sb-divider--w-', ['full', 'wide', 'narrow', 'short'], nextProps.width, 'full'));
+    }
+    if (nextProps.align !== prevProps.align) {
+      n += swapClassFromSet(hr, ['sb-divider--left', 'sb-divider--center', 'sb-divider--right'], enumClass('sb-divider--', ['left', 'center', 'right'], nextProps.align, 'center'));
+    }
+    return n;
+  }
+
+  if (type === 'core.spacer') {
+    if (nextProps.size !== prevProps.size) {
+      n += swapClassFromSet(el.querySelector('.sb-spacer'), ['sb-spacer--xs', 'sb-spacer--sm', 'sb-spacer--md', 'sb-spacer--lg', 'sb-spacer--xl', 'sb-spacer--2xl'], enumClass('sb-spacer--', ['xs', 'sm', 'md', 'lg', 'xl', '2xl'], nextProps.size, 'md'));
+    }
+    return n;
+  }
+
+  if (type === 'core.icon') {
+    const icon = el.querySelector('.sb-icon');
+    if (nextProps.size !== prevProps.size) {
+      n += swapClassFromSet(icon, ['sb-icon--sm', 'sb-icon--md', 'sb-icon--lg', 'sb-icon--xl'], enumClass('sb-icon--', ['sm', 'md', 'lg', 'xl'], nextProps.size, 'md'));
+    }
+    if (nextProps.align !== prevProps.align) {
+      n += swapClassFromSet(icon, ['sb-icon--left', 'sb-icon--center', 'sb-icon--right'], enumClass('sb-icon--', ['left', 'center', 'right'], nextProps.align, 'left'));
+    }
+    return n;
+  }
+
+  return 0;
 }
 
 /**
@@ -224,14 +436,22 @@ export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'bas
       const prevBlock = prevBlocks.get(id);
       if (prevBlock === nextBlock) continue;
 
-      if (SERVER_RENDERED_TYPES.has(nextBlock.type)) continue; // repainted from the server (see isStructuralChange)
-      if (HIGHLIGHT_TYPES.has(nextBlock.type) && (asHighlight(nextBlock) || (prevBlock && asHighlight(prevBlock)))) continue;
-
       const el = canvasDoc.querySelector(`[data-sb-node="${cssEscape(id)}"]`);
       if (!el) continue;
 
       const nextProps = isPlainObject(nextBlock.props) ? nextBlock.props : {};
       const prevProps = prevBlock && isPlainObject(prevBlock.props) ? prevBlock.props : {};
+
+      if (SERVER_RENDERED_TYPES.has(nextBlock.type)) {
+        // Repainted from the server after the save (see isStructuralChange); a few types
+        // patch their visible text ahead of that repaint so the edit shows instantly.
+        if (LIVE_PATCH_TYPES.has(nextBlock.type)) {
+          updateCount += patchServerRenderedBlock(el, nextBlock.type, prevProps, nextProps);
+        }
+        continue;
+      }
+      if (HIGHLIGHT_TYPES.has(nextBlock.type) && (asHighlight(nextBlock) || (prevBlock && asHighlight(prevBlock)))) continue;
+
       const nextStyle = isPlainObject(nextBlock.style) ? nextBlock.style : {};
       const prevStyle = prevBlock && isPlainObject(prevBlock.style) ? prevBlock.style : {};
 
