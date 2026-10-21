@@ -98,7 +98,7 @@ final class DeclarativeBlockDefinition implements BlockDefinitionInterface
             }
             $field = explode('.', $prop, 2);
             $ok = isset($types[$field[0]]) && (
-                (count($field) === 1 && in_array($types[$field[0]], ['string', 'text'], true))
+                (count($field) === 1 && in_array($types[$field[0]], ['string', 'text', 'inline_html'], true))
                 || (count($field) === 2 && $field[1] === 'label' && $types[$field[0]] === 'link')
             );
             if (!$ok) {
@@ -243,7 +243,7 @@ final class DeclarativeBlockDefinition implements BlockDefinitionInterface
                 fn(array $e): array => [
                     'prop' => $e['prop'],
                     'selector' => $e['selector'],
-                    'multiline' => $this->inlineTextType($e['prop']) === 'text',
+                    'multiline' => ($e['multiline'] ?? false) === true || $this->inlineTextType($e['prop']) === 'text',
                 ],
                 $this->inlineText,
             ),

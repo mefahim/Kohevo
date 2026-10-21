@@ -16,7 +16,7 @@
 // When changes are non-structural (only props or styles changed), iframe reloads
 // are completely suppressed — guaranteeing instantaneous preview response.
 
-import { nodeIds } from './doc.mjs';
+import { docHasMarkupTextChange, nodeIds } from './doc.mjs';
 import { styleChangeIsLive } from './liveStyleSync.mjs';
 
 const BREAKPOINTS = ['base', 'sm', 'md', 'lg'];
@@ -588,6 +588,8 @@ function patchHighlightedHeading(el, type, prevProps, nextProps) {
  */
 export function syncLiveDOM(canvasDoc, prevDoc, nextDoc, activeBreakpoint = 'base') {
   if (!canvasDoc || !canvasDoc.querySelector || !nextDoc) return 0;
+  // Formatted (inline_html) values are painted by the server repaint (Batch D).
+  if (docHasMarkupTextChange(prevDoc, nextDoc)) return 0;
 
   let updateCount = 0;
   const hlGuarded = new Set();

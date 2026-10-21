@@ -45,6 +45,17 @@ $items = $menuForm['items'] !== [] ? $menuForm['items'] : [['label' => '', 'url'
             <button type="button" class="btn btn-sm btn-ghost" data-move="down" aria-label="<?= e(__('studio_menu_move_down', 'Move down')) ?>">↓</button>
             <button type="button" class="btn btn-sm btn-ghost" data-remove aria-label="<?= e(__('studio_menu_remove', 'Remove link')) ?>"><?= sb_svg('trash', 14) ?></button>
         </span>
+        <ol class="sb-menu-subitems">
+            <?php foreach (($item['children'] ?? []) as $j => $child): ?>
+            <li class="sb-menu-subitem">
+                <input type="text" name="items[<?= (int) $i ?>][children][<?= (int) $j ?>][label]" maxlength="<?= StudioMenus::MAX_LABEL ?>" placeholder="<?= e(__('studio_menu_sub_label', 'Sub-link label')) ?>" aria-label="<?= e(__('studio_menu_sub_label', 'Sub-link label')) ?>" value="<?= e((string) ($child['label'] ?? '')) ?>">
+                <input type="text" name="items[<?= (int) $i ?>][children][<?= (int) $j ?>][url]" maxlength="<?= StudioMenus::MAX_URL ?>" list="sb-menu-paths" placeholder="<?= e(__('studio_menu_url', '/about or https://…')) ?>" aria-label="<?= e(__('studio_menu_url_label', 'Address')) ?>" value="<?= e((string) ($child['url'] ?? '')) ?>">
+                <label class="sb-menu-item__tab"><input type="checkbox" name="items[<?= (int) $i ?>][children][<?= (int) $j ?>][new_tab]" value="1"<?= !empty($child['new_tab']) ? ' checked' : '' ?>> <span><?= e(__('studio_menu_new_tab', 'New tab')) ?></span></label>
+                <button type="button" class="btn btn-sm btn-ghost" data-remove-sub aria-label="<?= e(__('studio_menu_remove', 'Remove link')) ?>"><?= sb_svg('trash', 14) ?></button>
+            </li>
+            <?php endforeach; ?>
+        </ol>
+        <p class="sb-menu-subadd"><button type="button" class="btn btn-sm btn-ghost" data-add-sub><?= sb_svg('plus', 12) ?> <span><?= e(__('studio_menu_add_sub', 'Add sub-link')) ?></span></button></p>
     </li>
     <?php endforeach; ?>
 </ol>
@@ -52,6 +63,10 @@ $items = $menuForm['items'] !== [] ? $menuForm['items'] : [['label' => '', 'url'
 <style>
     .sb-menu-items { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .sb-menu-item { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 1.6fr) auto auto; align-items: center; gap: 8px; }
+    .sb-menu-subitems { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0 0 0 24px; display: flex; flex-direction: column; gap: 6px; }
+    .sb-menu-subitems:empty { display: none; }
+    .sb-menu-subitem { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 1.6fr) auto auto; align-items: center; gap: 8px; opacity: 0.92; }
+    .sb-menu-subadd { grid-column: 1 / -1; margin: 0; }
     .sb-menu-item__tab { display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; color: var(--sb-muted); white-space: nowrap; }
     .sb-menu-item__tools { display: inline-flex; gap: 2px; }
     .sb-menu-links-title { margin: 20px 0 10px; font-size: 1rem; }
@@ -68,8 +83,17 @@ $items = $menuForm['items'] !== [] ? $menuForm['items'] : [['label' => '', 'url'
             Array.prototype.forEach.call(li.querySelectorAll('[name^="items["]'), function (el) {
                 el.name = el.name.replace(/^items\[\d+\]/, 'items[' + i + ']');
             });
+            var subs = li.querySelector('.sb-menu-subitems');
+            if (subs) Array.prototype.forEach.call(subs.children, function (sub, j) {
+                Array.prototype.forEach.call(sub.querySelectorAll('[name^="items["]'), function (el) {
+                    el.name = el.name.replace(/\[children\]\[\d+\]/, '[children][' + j + ']');
+                });
+            });
         });
         document.getElementById('sb-menu-add').disabled = list.children.length >= max;
+    }
+    function clearInputs(scope) {
+        Array.prototype.forEach.call(scope.querySelectorAll('input'), function (el) { if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
     }
     document.getElementById('sb-menu-add').addEventListener('click', function () {
         if (list.children.length >= max) return;
@@ -85,6 +109,31 @@ $items = $menuForm['items'] !== [] ? $menuForm['items'] : [['label' => '', 'url'
         var btn = e.target.closest('button');
         if (!btn) return;
         var li = btn.closest('.sb-menu-item');
+        if (btn.hasAttribute('data-add-sub')) {
+            var subs = li.querySelector('.sb-menu-subitems');
+            if (subs && subs.children.length < 12) {
+                var row;
+                if (subs.lastElementChild) { row = subs.lastElementChild.cloneNode(true); clearInputs(row); }
+                else {
+                    row = document.createElement('li');
+                    row.className = 'sb-menu-subitem';
+                    row.innerHTML = '<input type="text" name="items[0][children][0][label]" maxlength="<?= StudioMenus::MAX_LABEL ?>" placeholder="<?= e(__('studio_menu_sub_label', 'Sub-link label')) ?>">'
+                        + '<input type="text" name="items[0][children][0][url]" maxlength="<?= StudioMenus::MAX_URL ?>" list="sb-menu-paths" placeholder="<?= e(__('studio_menu_url', '/about or https://…')) ?>">'
+                        + '<label class="sb-menu-item__tab"><input type="checkbox" name="items[0][children][0][new_tab]" value="1"> <span><?= e(__('studio_menu_new_tab', 'New tab')) ?></span></label>'
+                        + '<button type="button" class="btn btn-sm btn-ghost" data-remove-sub aria-label="Remove"><?= sb_svg('trash', 14) ?></button>';
+                }
+                subs.appendChild(row);
+                reindex();
+                row.querySelector('input').focus();
+            }
+            return;
+        }
+        if (btn.hasAttribute('data-remove-sub')) {
+            var sub = btn.closest('.sb-menu-subitem');
+            if (sub) sub.remove();
+            reindex();
+            return;
+        }
         if (btn.hasAttribute('data-remove')) {
             if (list.children.length > 1) li.remove();
             else Array.prototype.forEach.call(li.querySelectorAll('input'), function (el) { if (el.type === 'checkbox') el.checked = false; else el.value = ''; });

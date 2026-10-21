@@ -7,10 +7,19 @@
 import { asList, asObject, blockDefinition } from './doc.mjs';
 import { getPath, setPath } from './styleSurface.mjs';
 
-/** The inline text declarations of a block: [{prop, selector, multiline}], or []. */
+/** The inline text declarations of a block: [{prop, selector, multiline, format}], or []. */
 export function inlineSpecsFor(manifest, node) {
   const def = node && node.type ? blockDefinition(manifest, node.type) : null;
-  return asList(def && def.inline_text).filter((s) => s && typeof s.prop === 'string' && typeof s.selector === 'string');
+  const fields = asList(def && def.field_schema);
+  return asList(def && def.inline_text)
+    .filter((s) => s && typeof s.prop === 'string' && typeof s.selector === 'string')
+    .map((s) => {
+      const field = fields.find((f) => f && f.key === s.prop.split('.')[0]);
+      // `format` marks props whose field type stores the inline HTML subset
+      // (Batch D): the canvas shows the B/I/link bubble tools for them and
+      // commits innerHTML; every other declared prop stays plain text.
+      return { ...s, format: !!field && (field.type === 'inline_html' || field.type === 'rich_text') };
+    });
 }
 
 /**

@@ -153,7 +153,7 @@
                         "heading": "How do I get started?"
                     },
                     {
-                        "body": "Yes — freeze for up to three months, in one go or in slices.",
+                        "body": "Yes \u2014 freeze for up to three months, in one go or in slices.",
                         "heading": "Can I freeze my membership?"
                     },
                     {
@@ -176,7 +176,7 @@
                         },
                         {
                             "heading": "Can I freeze my membership?",
-                            "body": "Yes — freeze for up to three months, in one go or in slices."
+                            "body": "Yes \u2014 freeze for up to three months, in one go or in slices."
                         },
                         {
                             "heading": "What should I bring?",
@@ -851,7 +851,7 @@
             "field_schema": [
                 {
                     "key": "title",
-                    "type": "string",
+                    "type": "inline_html",
                     "label": "Title",
                     "required": false,
                     "default": "",
@@ -1309,6 +1309,59 @@
             "version": 1
         },
         {
+            "allowed_binding_providers": [],
+            "allowed_child_types": [],
+            "allows_children": false,
+            "binding_slots": [],
+            "category": "advanced",
+            "default_props": {
+                "ref": ""
+            },
+            "description": "A synced global component, placed as a block",
+            "field_schema": [
+                {
+                    "key": "ref",
+                    "type": "string",
+                    "label": "Component (page ID)",
+                    "required": false,
+                    "default": "",
+                    "max_length": 36
+                }
+            ],
+            "icon": "layout-section",
+            "inline_text": [],
+            "label": "Global block",
+            "required_entitlement": null,
+            "required_permission": "studio-builder.edit",
+            "style_capabilities": [
+                "align",
+                "surface_token",
+                "text_token",
+                "spacing_token",
+                "radius_token",
+                "shadow_token",
+                "font_token",
+                "border_token",
+                "typography",
+                "color",
+                "background",
+                "spacing",
+                "border",
+                "shadow",
+                "dimensions",
+                "opacity",
+                "z_index",
+                "layout",
+                "position",
+                "effects",
+                "margin",
+                "padding"
+            ],
+            "title": "Global",
+            "type": "core.global",
+            "version": 1
+        },
+        {
             "allowed_binding_providers": [
                 "content.posts",
                 "content.authors",
@@ -1335,7 +1388,7 @@
             "field_schema": [
                 {
                     "key": "text",
-                    "type": "string",
+                    "type": "inline_html",
                     "label": "Heading Text",
                     "required": true,
                     "default": "Section Heading",
@@ -1471,7 +1524,7 @@
             "field_schema": [
                 {
                     "key": "eyebrow",
-                    "type": "string",
+                    "type": "inline_html",
                     "label": "Eyebrow",
                     "required": false,
                     "default": "",
@@ -1479,7 +1532,7 @@
                 },
                 {
                     "key": "heading",
-                    "type": "string",
+                    "type": "inline_html",
                     "label": "Heading",
                     "required": true,
                     "default": "Welcome",
@@ -1538,7 +1591,7 @@
                 },
                 {
                     "key": "subheading",
-                    "type": "text",
+                    "type": "inline_html",
                     "label": "Subheading",
                     "required": false,
                     "default": "",
@@ -1613,6 +1666,59 @@
             ],
             "title": "Hero",
             "type": "core.hero",
+            "version": 1
+        },
+        {
+            "allowed_binding_providers": [],
+            "allowed_child_types": [],
+            "allows_children": false,
+            "binding_slots": [],
+            "category": "advanced",
+            "default_props": {
+                "html": ""
+            },
+            "description": "Custom markup and embeds (sanitized)",
+            "field_schema": [
+                {
+                    "key": "html",
+                    "type": "html",
+                    "label": "HTML",
+                    "required": false,
+                    "default": "",
+                    "max_length": 20000
+                }
+            ],
+            "icon": "code",
+            "inline_text": [],
+            "label": "Custom HTML",
+            "required_entitlement": null,
+            "required_permission": "studio-builder.edit",
+            "style_capabilities": [
+                "align",
+                "surface_token",
+                "text_token",
+                "spacing_token",
+                "radius_token",
+                "shadow_token",
+                "font_token",
+                "border_token",
+                "typography",
+                "color",
+                "background",
+                "spacing",
+                "border",
+                "shadow",
+                "dimensions",
+                "opacity",
+                "z_index",
+                "layout",
+                "position",
+                "effects",
+                "margin",
+                "padding"
+            ],
+            "title": "HTML",
+            "type": "core.html",
             "version": 1
         },
         {
@@ -2311,6 +2417,23 @@
                             "required": true,
                             "default": null,
                             "max_length": 1000
+                        },
+                        {
+                            "key": "new_tab",
+                            "type": "boolean",
+                            "label": "Open in new tab",
+                            "required": false,
+                            "default": false
+                        },
+                        {
+                            "key": "parent",
+                            "type": "number",
+                            "label": "Submenu of link # (0 = top level)",
+                            "required": false,
+                            "default": 0,
+                            "min": 0,
+                            "max": 12,
+                            "integer_only": true
                         }
                     ]
                 }
@@ -2600,7 +2723,7 @@
             "field_schema": [
                 {
                     "key": "text",
-                    "type": "text",
+                    "type": "inline_html",
                     "label": "Quote",
                     "required": true,
                     "default": "A short, memorable line from someone who matters.",
@@ -3199,7 +3322,7 @@
             "field_schema": [
                 {
                     "key": "content",
-                    "type": "text",
+                    "type": "inline_html",
                     "label": "Text Content",
                     "required": false,
                     "default": "",
@@ -4244,6 +4367,167 @@
             "version": 1
         },
         {
+            "allowed_binding_providers": [],
+            "allowed_child_types": [],
+            "allows_children": false,
+            "binding_slots": [],
+            "category": "business",
+            "default_props": {
+                "label": "",
+                "variant": "button"
+            },
+            "description": "A link to your shop cart",
+            "field_schema": [
+                {
+                    "key": "label",
+                    "type": "string",
+                    "label": "Label",
+                    "required": false,
+                    "default": "",
+                    "max_length": 60
+                },
+                {
+                    "key": "variant",
+                    "type": "enum",
+                    "label": "Style",
+                    "required": false,
+                    "default": "button",
+                    "allowed_values": [
+                        "button",
+                        "link"
+                    ]
+                }
+            ],
+            "icon": "link",
+            "inline_text": [],
+            "label": "Cart Link",
+            "required_entitlement": "shop",
+            "required_permission": "studio-builder.edit",
+            "style_capabilities": [
+                "align",
+                "surface_token",
+                "text_token",
+                "spacing_token",
+                "radius_token",
+                "shadow_token",
+                "font_token",
+                "border_token",
+                "typography",
+                "color",
+                "background",
+                "spacing",
+                "border",
+                "shadow",
+                "dimensions",
+                "opacity",
+                "z_index",
+                "layout",
+                "position",
+                "effects",
+                "margin",
+                "padding"
+            ],
+            "title": "Cart Link",
+            "type": "shop.cart_link",
+            "version": 1
+        },
+        {
+            "allowed_binding_providers": [
+                "shop.products"
+            ],
+            "allowed_child_types": [],
+            "allows_children": false,
+            "binding_slots": [
+                {
+                    "provider": "shop.products",
+                    "slot": "items"
+                }
+            ],
+            "category": "business",
+            "default_props": {
+                "columns": 3,
+                "cta_label": "",
+                "heading": "",
+                "show_images": true,
+                "show_prices": true
+            },
+            "description": "Products from your shop catalogue",
+            "field_schema": [
+                {
+                    "key": "heading",
+                    "type": "string",
+                    "label": "Heading",
+                    "required": false,
+                    "default": "",
+                    "max_length": 200
+                },
+                {
+                    "key": "columns",
+                    "type": "number",
+                    "label": "Columns",
+                    "required": false,
+                    "default": 3,
+                    "min": 2,
+                    "max": 4,
+                    "integer_only": true
+                },
+                {
+                    "key": "show_images",
+                    "type": "boolean",
+                    "label": "Show images",
+                    "required": false,
+                    "default": true
+                },
+                {
+                    "key": "show_prices",
+                    "type": "boolean",
+                    "label": "Show prices",
+                    "required": false,
+                    "default": true
+                },
+                {
+                    "key": "cta_label",
+                    "type": "string",
+                    "label": "Button label",
+                    "required": false,
+                    "default": "",
+                    "max_length": 80
+                }
+            ],
+            "icon": "grid-dots",
+            "inline_text": [],
+            "label": "Shop Products",
+            "required_entitlement": "shop",
+            "required_permission": "studio-builder.edit",
+            "style_capabilities": [
+                "align",
+                "surface_token",
+                "text_token",
+                "spacing_token",
+                "radius_token",
+                "shadow_token",
+                "font_token",
+                "border_token",
+                "typography",
+                "color",
+                "background",
+                "spacing",
+                "border",
+                "shadow",
+                "dimensions",
+                "opacity",
+                "z_index",
+                "layout",
+                "position",
+                "effects",
+                "margin",
+                "padding"
+            ],
+            "title": "Shop Products",
+            "type": "shop.products",
+            "version": 1
+        },
+        {
             "allowed_binding_providers": [
                 "content.taxonomy"
             ],
@@ -4462,7 +4746,7 @@
             "binding_slots": [],
             "category": "theme",
             "default_props": {
-                "separator": " • ",
+                "separator": " \u2022 ",
                 "show_author": true,
                 "show_category": true,
                 "show_date": true
@@ -4495,7 +4779,7 @@
                     "type": "string",
                     "label": "Separator",
                     "required": false,
-                    "default": " • ",
+                    "default": " \u2022 ",
                     "max_length": 10
                 }
             ],
@@ -4877,6 +5161,51 @@
             "key": "membership.plans",
             "max_results": 100,
             "params": []
+        },
+        {
+            "key": "shop.products",
+            "max_results": 24,
+            "params": [
+                {
+                    "key": "category",
+                    "type": "string",
+                    "label": "Category slug",
+                    "required": false,
+                    "default": "",
+                    "max_length": 80
+                },
+                {
+                    "key": "featured_only",
+                    "type": "boolean",
+                    "label": "Featured products only",
+                    "required": false,
+                    "default": false
+                },
+                {
+                    "key": "sort",
+                    "type": "enum",
+                    "label": "Sort order",
+                    "required": false,
+                    "default": "newest",
+                    "allowed_values": [
+                        "newest",
+                        "price-asc",
+                        "price-desc",
+                        "name",
+                        "featured"
+                    ]
+                },
+                {
+                    "key": "limit",
+                    "type": "number",
+                    "label": "Products to show",
+                    "required": false,
+                    "default": 12,
+                    "min": 1,
+                    "max": 24,
+                    "integer_only": true
+                }
+            ]
         }
     ],
     "tokens": [

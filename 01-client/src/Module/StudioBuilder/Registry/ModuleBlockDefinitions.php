@@ -139,6 +139,39 @@ final class ModuleBlockDefinitions
                     ['key' => 'url', 'type' => 'string', 'label' => 'Stripe link', 'required' => false, 'default' => '', 'max_length' => 600, 'pattern' => PaymentLinkUrl::PATTERN],
                 ]),
             ),
+            new DeclarativeBlockDefinition(
+                type: 'shop.products',
+                version: 1,
+                label: 'Shop Products',
+                title: 'Shop Products',
+                description: 'Products from your shop catalogue',
+                category: 'business',
+                icon: 'grid-dots',
+                schema: FieldSchema::define([
+                    ['key' => 'heading', 'type' => 'string', 'label' => 'Heading', 'required' => false, 'default' => '', 'max_length' => 200],
+                    ['key' => 'columns', 'type' => 'number', 'label' => 'Columns', 'required' => false, 'default' => 3, 'min' => 2, 'max' => 4, 'integer_only' => true],
+                    ['key' => 'show_images', 'type' => 'boolean', 'label' => 'Show images', 'required' => false, 'default' => true],
+                    ['key' => 'show_prices', 'type' => 'boolean', 'label' => 'Show prices', 'required' => false, 'default' => true],
+                    ['key' => 'cta_label', 'type' => 'string', 'label' => 'Button label', 'required' => false, 'default' => '', 'max_length' => 80],
+                ]),
+                requiredEntitlement: 'shop',
+                allowedBindingProviders: ['shop.products'],
+                bindingSlots: ['items' => 'shop.products'],
+            ),
+            new DeclarativeBlockDefinition(
+                type: 'shop.cart_link',
+                version: 1,
+                label: 'Cart Link',
+                title: 'Cart Link',
+                description: 'A link to your shop cart',
+                category: 'business',
+                icon: 'link',
+                schema: FieldSchema::define([
+                    ['key' => 'label', 'type' => 'string', 'label' => 'Label', 'required' => false, 'default' => '', 'max_length' => 60],
+                    ['key' => 'variant', 'type' => 'enum', 'label' => 'Style', 'required' => false, 'allowed_values' => ['button', 'link'], 'default' => 'button'],
+                ]),
+                requiredEntitlement: 'shop',
+            ),
         ];
     }
 

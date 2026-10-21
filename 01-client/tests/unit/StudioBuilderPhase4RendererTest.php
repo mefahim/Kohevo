@@ -243,7 +243,7 @@ unit('phase4 renderer: known core blocks render escaped, deterministic static ou
     $b = sbp4u_render($p, $doc, sbp4u_public());
     $html = $a['html'];
 
-    assert_true(str_contains($html, '<h3 class="sb-heading">Tom &amp; Jerry &lt;b&gt;bold&lt;/b&gt;</h3>'), 'heading text must be escaped, level honoured');
+    assert_true(str_contains($html, '<h3 class="sb-heading">Tom &amp; Jerry <b>bold</b></h3>'), 'heading text: plain parts escaped, the inline subset honoured (Batch D), level honoured');
     assert_true(str_contains($html, 'Welcome &quot;home&quot;'), 'hero heading escaped');
     assert_true(str_contains($html, 'line1<br>'), 'multi-line text keeps line breaks, escaped');
     assert_true(str_contains($html, 'href="https://example.org/x" target="_blank" rel="noopener noreferrer"'), '_blank links always get noopener noreferrer');
@@ -418,7 +418,7 @@ unit('phase4 security: authored content can never forge a dynamic marker', funct
     $p = sbp4u_pipeline();
     $booking = sbp4u_block('booking.services', [], ['bindings' => ['items' => ['provider' => 'booking.services']]]);
     $r = sbp4u_render($p, sbp4u_doc([sbp4u_block('core.heading', ['text' => '<!--sb-dyn:x:0-->']), $booking]), sbp4u_public());
-    assert_true(str_contains($r['html'], '&lt;!--sb-dyn:x:0--&gt;'), 'a marker-shaped string in authored text is escaped, not interpreted');
+    assert_true(!str_contains($r['html'], '<!--sb-dyn:x:0-->'), 'a marker-shaped string in authored text never reaches the output as a live marker (Batch D: comments are dropped by the inline sanitizer, rich text escaped them — either way it is not interpreted)');
 });
 
 // ── Media ────────────────────────────────────────────────────────────────────
@@ -566,7 +566,7 @@ unit('phase4 stylesheet: the generic link colour never reaches .sb-button links,
     assert_true(str_contains($css, '.sb-body a:not(.sb-button){color:var(--sb-color-accent)}'), 'ordinary links keep the accent colour');
     assert_true(str_contains($css, '.sb-button--primary{background:var(--sb-surface-accent);color:var(--sb-text-inverse)}'), 'primary: inverse text on the accent surface');
     assert_true(str_contains($css, '.sb-button--secondary{background:var(--sb-surface-secondary);color:var(--sb-text-primary)'), 'secondary keeps its own text colour');
-    assert_eq('18', \Slate\Module\StudioBuilder\Render\StudioStylesheet::VERSION, 'stylesheet version bumped so compiled pages are rebuilt');
+    assert_eq('20', \Slate\Module\StudioBuilder\Render\StudioStylesheet::VERSION, 'stylesheet version bumped so compiled pages are rebuilt');
 });
 
 if (!empty($studioP4UnitStandalone)) {

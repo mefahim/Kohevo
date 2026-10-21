@@ -139,6 +139,27 @@ final class Html
     }
 
     /**
+     * An `inline_html` value WITHOUT author line breaks: when the value
+     * carries markup (Batch D inline formatting), the highlight phrase can
+     * no longer be located reliably in the text, so the sanitized markup
+     * wins and the highlight is skipped; plain values keep the exact
+     * highlighted() behaviour.
+     */
+    public static function highlightedOrInline(string $value, string $highlight, array $look = []): string
+    {
+        if (str_contains($value, '<')) {
+            return RichTextSanitizer::sanitize($value);
+        }
+        return self::highlighted($value, $highlight, $look);
+    }
+
+    /** An `inline_html` value with author line breaks honoured (<br>), sanitized. */
+    public static function inlineText(string $value): string
+    {
+        return nl2br(RichTextSanitizer::sanitize($value), false);
+    }
+
+    /**
      * @param list<string> $classes
      */
     public static function classAttr(array $classes): string

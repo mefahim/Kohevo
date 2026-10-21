@@ -42,7 +42,7 @@ function useDraft(value, field, onChange) {
     setDraft(next);
     const empty = next === null || next === '' || next === undefined;
     if (hint(field, next) === null || (empty && !field.required)) {
-      const out = empty && field.type !== 'string' && field.type !== 'text' && field.type !== 'rich_text' ? null : next;
+      const out = empty && field.type !== 'string' && field.type !== 'text' && field.type !== 'rich_text' && field.type !== 'inline_html' && field.type !== 'html' ? null : next;
       committed.current = JSON.stringify(out ?? null);
       onChange(out);
     }

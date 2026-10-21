@@ -23,6 +23,7 @@ use Slate\Module\StudioBuilder\Provider\FormsFormEmbedProvider;
 use Slate\Module\StudioBuilder\Provider\FormsFormProvider;
 use Slate\Module\StudioBuilder\Provider\MembershipPlansProvider;
 use Slate\Module\StudioBuilder\Provider\PostsProvider;
+use Slate\Module\StudioBuilder\Provider\ShopProductsProvider;
 use Slate\Module\StudioBuilder\Provider\TaxonomyProvider;
 use Slate\Module\StudioBuilder\Registry\BlockRegistry;
 use Slate\Module\StudioBuilder\Registry\ModuleBlockDefinitions;
@@ -166,6 +167,7 @@ final class StudioRuntimeFactory
         $providers->register(new PostsProvider());
         $providers->register(new AuthorsProvider());
         $providers->register(new TaxonomyProvider());
+        $providers->register(new ShopProductsProvider());
         return $providers;
     }
 }

@@ -28,6 +28,8 @@
 // providers are deliberately NOT patched — they go through the renderer, whose
 // output depends on theme tokens and entitlements we do not reimplement here.
 
+import { docHasMarkupTextChange } from './doc.mjs';
+
 const ANIMATION_PREFIX = 'sb-animate-';
 const INTERACTION_PREFIX = 'sb-interaction-';
 const HIDE_PREFIX = 'sb-hide-';
@@ -301,6 +303,10 @@ export function patchCanvas(canvasDoc, prevDoc, nextDoc) {
   const before = indexBlocks(prevDoc);
   const after = indexBlocks(nextDoc);
   if (before.size !== after.size) return { ...none, reload: true, reason: 'node-count' };
+
+  // Formatted (inline_html) values are painted by the server repaint, never
+  // by the plain-text patchers (Batch D).
+  if (docHasMarkupTextChange(prevDoc, nextDoc)) return { ...none, reload: true, reason: 'formatted-text' };
 
   const ids = [];
   for (const [id, nextBlock] of after) {

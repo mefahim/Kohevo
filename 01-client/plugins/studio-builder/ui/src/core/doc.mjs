@@ -243,3 +243,47 @@ export function ancestorPath(doc, id, manifest) {
   }
   return path;
 }
+
+function markupInValue(v, depth = 0) {
+  if (typeof v === 'string') return v.includes('<');
+  if (depth < 1 && v && typeof v === 'object') return Object.values(v).some((x) => markupInValue(x, depth + 1));
+  return false;
+}
+
+function blocksById(doc, into = new Map()) {
+  for (const sec of (doc && doc.sections) || []) {
+    const walk = (blocks) => {
+      for (const b of blocks || []) {
+        if (b && b.id) into.set(b.id, b);
+        if (b && Array.isArray(b.children)) walk(b.children);
+      }
+    };
+    walk(sec && sec.blocks);
+  }
+  return into;
+}
+
+/**
+ * True when any block that changed between the two documents has markup
+ * (`<`) in a changed prop value (Batch D inline formatting). The plain-text
+ * canvas patchers cannot paint marked-up values — they would show the raw
+ * tags — so callers skip the local patch and let the server repaint settle
+ * the block, exactly like a structural change.
+ */
+export function docHasMarkupTextChange(prevDoc, nextDoc) {
+  if (!prevDoc || !nextDoc || prevDoc === nextDoc) return false;
+  const before = blocksById(prevDoc);
+  const after = blocksById(nextDoc);
+  for (const [id, next] of after) {
+    const prev = before.get(id);
+    if (!prev || prev === next) continue;
+    const keys = new Set([...Object.keys(prev.props || {}), ...Object.keys(next.props || {})]);
+    for (const key of keys) {
+      const a = (prev.props || {})[key];
+      const b = (next.props || {})[key];
+      if (JSON.stringify(a) === JSON.stringify(b)) continue;
+      if (markupInValue(a) || markupInValue(b)) return true;
+    }
+  }
+  return false;
+}
