@@ -22,6 +22,7 @@ final class StudioMenus
     public const SETTING_KEY     = 'studio_menus';
     public const MAX_MENUS       = 15;
     public const MAX_ITEMS       = 30;
+    public const MAX_CHILDREN    = 12;
     public const MAX_NAME        = 80;
     public const MAX_LABEL       = 80;
     public const MAX_URL         = 1000;
@@ -109,6 +110,22 @@ final class StudioMenus
         if ($name === '' || mb_strlen($name) > self::MAX_NAME) {
             throw new \InvalidArgumentException('Give the menu a name (up to ' . self::MAX_NAME . ' characters).');
         }
+        $clean = self::cleanItems($items, 0);
+        if (count($clean) > self::MAX_ITEMS) {
+            throw new \InvalidArgumentException('A menu holds up to ' . self::MAX_ITEMS . ' links.');
+        }
+        return ['key' => $key, 'name' => $name, 'items' => $clean];
+    }
+
+    /**
+     * Clean one level of menu items. An item may carry `children` (one
+     * submenu level, Batch D); children are cleaned with the same rules and
+     * may not themselves have children.
+     *
+     * @return list<array{label: string, url: string, new_tab: bool, children?: list<array{label: string, url: string, new_tab: bool}>}>
+     */
+    private static function cleanItems(array $items, int $depth): array
+    {
         $clean = [];
         foreach ($items as $row) {
             if (!is_array($row)) {
@@ -125,12 +142,20 @@ final class StudioMenus
             if ($url === '' || strlen($url) > self::MAX_URL || !FieldSchema::isSafeUrl($url)) {
                 throw new \InvalidArgumentException('The link "' . $label . '" needs a web address, a path such as /about, or mailto:/tel:.');
             }
-            $clean[] = ['label' => $label, 'url' => $url, 'new_tab' => !empty($row['new_tab'])];
+            $item = ['label' => $label, 'url' => $url, 'new_tab' => !empty($row['new_tab'])];
+            if ($depth === 0 && isset($row['children']) && is_array($row['children']) && $row['children'] !== []) {
+                $children = self::cleanItems($row['children'], 1);
+                if (count($children) > self::MAX_CHILDREN) {
+                    throw new \InvalidArgumentException('A submenu holds up to ' . self::MAX_CHILDREN . ' links.');
+                }
+                if ($children !== []) {
+                    $item['children'] = $children;
+                }
+            }
+            $clean[] = $item;
         }
-        if (count($clean) > self::MAX_ITEMS) {
-            throw new \InvalidArgumentException('A menu holds up to ' . self::MAX_ITEMS . ' links.');
-        }
-        return ['key' => $key, 'name' => $name, 'items' => $clean];
+
+        return $clean;
     }
 
     /** The stored JSON read back safely: anything that no longer validates is dropped, never shown. */

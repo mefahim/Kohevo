@@ -49,7 +49,7 @@ final class FeatureListRenderer implements BlockRendererInterface
         }
 
         return '<div class="sb-feature-list">'
-            . ($title !== '' ? '<h2 class="sb-feature-list__title">' . Html::e($title) . '</h2>' : '')
+            . ($title !== '' ? '<h2 class="sb-feature-list__title">' . \Slate\Module\StudioBuilder\Render\RichTextSanitizer::sanitize($title) . '</h2>' : '')
             . ($items !== '' ? '<ul' . Html::classAttr(['sb-feature-list__items', 'sb-cols-1', 'sb-md-cols-' . $columns]) . '>' . $items . '</ul>' : '')
             . '</div>';
     }

@@ -58,6 +58,6 @@ final class TextRenderer implements BlockRendererInterface
             }
         }
 
-        return '<p' . Html::classAttr($classes) . '>' . Html::text($content) . '</p>';
+        return '<p' . Html::classAttr($classes) . '>' . Html::inlineText($content) . '</p>';
     }
 }

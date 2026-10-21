@@ -8,7 +8,8 @@ const node = (type) => ({ id: 'blk_1', type, props: {} });
 test('only the blocks that declare inline text are editable in place, and each names its prop and element', () => {
   const declared = manifest.blocks.filter((b) => (b.inline_text || []).length > 0).map((b) => b.type).sort();
   assert.deepEqual(declared, ['core.button', 'core.feature_list', 'core.heading', 'core.hero', 'core.quote', 'core.text']);
-  assert.deepEqual(inlineSpecsFor(manifest, node('core.heading')), [{ prop: 'text', selector: '.sb-heading', multiline: false }]);
+  assert.deepEqual(inlineSpecsFor(manifest, node('core.heading')), [{ prop: 'text', selector: '.sb-heading', multiline: false, format: true }]);
+  assert.equal(inlineSpecsFor(manifest, node('core.button'))[0].format, false, 'the button label stays plain text (link field)');
   assert.deepEqual(inlineSpecsFor(manifest, node('core.button')).map((s) => s.prop), ['link.label']);
   assert.equal(inlineSpecsFor(manifest, node('core.text'))[0].multiline, true, 'a text field keeps its line breaks');
   assert.deepEqual(inlineSpecsFor(manifest, node('core.image')), []);
@@ -22,7 +23,7 @@ test('every declared prop is a text prop of the block, so an edit can never writ
       const [key, sub] = s.prop.split('.');
       const field = b.field_schema.find((f) => f.key === key);
       assert.ok(field, `${b.type}.${s.prop} exists`);
-      assert.ok(sub ? (sub === 'label' && field.type === 'link') : ['string', 'text'].includes(field.type), `${b.type}.${s.prop} is text`);
+      assert.ok(sub ? (sub === 'label' && field.type === 'link') : ['string', 'text', 'inline_html'].includes(field.type), `${b.type}.${s.prop} is text`);
     }
   }
 });

@@ -99,3 +99,84 @@ export function toAllowedHtml(html) {
     .replace(/<i><em>([\s\S]*?)<\/em><\/i>/g, '<em>$1</em>');
   return out.trim() === '' ? '<p></p>' : out;
 }
+
+const INLINE_ALLOWED = new Set(['mark', 'strong', 'em', 'b', 'i', 'u', 's', 'a', 'span', 'br']);
+const BLOCK_UNWRAP = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'section', 'article', 'header', 'footer', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'dl', 'dt', 'dd', 'main', 'nav', 'aside']);
+
+/**
+ * Normalize canvas inline-edit HTML to the server's `inline_html` subset
+ * (Batch D): strong/em/b/i/u/s, safe links, the highlight span, and line
+ * breaks. Block-level tags are unwrapped — their boundaries become a
+ * newline for multiline fields, a space otherwise — and anything dangerous
+ * is dropped with its content, mirroring toAllowedHtml's walker.
+ */
+export function toInlineHtml(html, { multiline = false } = {}) {
+  const input = String(html ?? '');
+  const sep = multiline ? '\n' : ' ';
+  let out = '';
+  let last = 0;
+  let skipDepth = 0;
+  let skipTag = null;
+  const open = [];
+  let m;
+  TAG.lastIndex = 0;
+  while ((m = TAG.exec(input)) !== null) {
+    const text = input.slice(last, m.index);
+    last = TAG.lastIndex;
+    if (!skipDepth) out += text;
+    if (!m[2]) continue; // comment
+    const closing = m[1] === '/';
+    const tag = m[2].toLowerCase();
+
+    if (skipDepth) {
+      if (tag === skipTag) skipDepth += closing ? -1 : 1;
+      continue;
+    }
+    if (DROP_WITH_CONTENT.has(tag)) {
+      if (!closing) { skipDepth = 1; skipTag = tag; }
+      continue;
+    }
+    if (BLOCK_UNWRAP.has(tag)) {
+      out += sep;
+      continue;
+    }
+    if (!INLINE_ALLOWED.has(tag)) continue;
+
+    if (closing) {
+      const idx = open.lastIndexOf(tag);
+      if (idx < 0) continue;
+      while (open.length > idx) out += `</${outTag(open.pop())}>`;
+      continue;
+    }
+    if (tag === 'br') { out += multiline ? '\n' : '<br>'; continue; }
+    if (tag === 'a') {
+      const href = attr(m[3], 'href');
+      const target = attr(m[3], 'target');
+      let a = '<a';
+      if (href && isLikelySafeUrl(href)) a += ` href="${escAttr(href.trim())}"`;
+      if (target === '_blank') a += ' target="_blank" rel="noopener noreferrer"';
+      out += a + '>';
+    } else if (tag === 'mark' || (tag === 'span' && attr(m[3], 'class') === HIGHLIGHT)) {
+      out += `<span class="${HIGHLIGHT}">`;
+    } else {
+      out += `<${tag}>`;
+    }
+    open.push(tag);
+  }
+  if (!skipDepth) out += input.slice(last);
+  while (open.length) out += `</${outTag(open.pop())}>`;
+
+  let prev;
+  do {
+    prev = out;
+    out = out.replace(/<span>([^<]*)<\/span>/g, '$1');
+  } while (out !== prev);
+  out = out.replace(/<b><strong>([\s\S]*?)<\/strong><\/b>/g, '<strong>$1</strong>')
+    .replace(/<i><em>([\s\S]*?)<\/em><\/i>/g, '<em>$1</em>');
+  if (multiline) {
+    out = out.split('\n').map((line) => line.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n');
+  } else {
+    out = out.replace(/\s+/g, ' ');
+  }
+  return out.trim();
+}

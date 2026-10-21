@@ -166,10 +166,10 @@ unit('elements: core.list renders ul, ol, the check and plain styles, and escape
     assert_false(str_contains(sbel_render([sbel_block('core.list', ['items' => [['text' => '']]])]), 'sb-list__item'), 'a blank item is never emitted');
 });
 
-unit('elements: core.quote escapes text, author and role, and omits an empty caption', function (): void {
+unit('elements: core.quote renders inline formatting in its text, escapes author and role, and omits an empty caption', function (): void {
     $html = sbel_render([sbel_block('core.quote', ['text' => 'It <i>works</i>', 'author' => 'A & B', 'role' => '<CEO>', 'align' => 'center'])]);
     assert_true(str_contains($html, '<figure class="sb-quote sb-quote--center">'), 'figure with alignment');
-    assert_true(str_contains($html, '<blockquote class="sb-quote__text"><p>It &lt;i&gt;works&lt;/i&gt;</p></blockquote>'), 'quote text escaped');
+    assert_true(str_contains($html, '<blockquote class="sb-quote__text"><p>It <i>works</i></p></blockquote>'), 'quote text carries the inline subset (Batch D)');
     assert_true(str_contains($html, '<span class="sb-quote__author">A &amp; B</span>'), 'author escaped');
     assert_true(str_contains($html, '<span class="sb-quote__role">&lt;CEO&gt;</span>'), 'role escaped');
 
@@ -227,12 +227,12 @@ unit('elements 2: card, table and countdown are registered; only the card holds 
 
 unit('elements 2: card renders its children inside a padded surface and counts as a nesting level', function (): void {
     $registry = ModuleBlockDefinitions::studioRegistry();
-    $inner = sbel_block('core.heading', ['text' => 'Inside <b>', 'level' => 'h2']);
+    $inner = sbel_block('core.heading', ['text' => 'Inside <b>now</b>', 'level' => 'h2']);
     $card = sbel_block('core.card', ['variant' => 'shadow', 'padding' => 'lg']);
     $card['children'] = [$inner];
     $html = sbel_render([$card]);
     assert_true(str_contains($html, '<div class="sb-card sb-card--shadow sb-card--pad-lg">'), 'variant and padding classes');
-    assert_true(str_contains($html, 'Inside &lt;b&gt;'), 'child rendered and escaped');
+    assert_true(str_contains($html, 'Inside <b>now</b>'), 'child rendered (inline subset honoured, Batch D)');
     assert_true(strpos($html, 'sb-card') < strpos($html, 'Inside'), 'child sits inside the card');
 
     $nest = static function (int $cards) use ($registry): array {

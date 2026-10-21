@@ -45,7 +45,7 @@ final class QuoteRenderer implements BlockRendererInterface
         }
 
         return '<figure' . Html::classAttr(['sb-quote', 'sb-quote--' . $align]) . '>'
-            . '<blockquote class="sb-quote__text"><p>' . Html::text($text) . '</p></blockquote>'
+            . '<blockquote class="sb-quote__text"><p>' . Html::inlineText($text) . '</p></blockquote>'
             . $caption
             . '</figure>';
     }

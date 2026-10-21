@@ -765,6 +765,24 @@ final class DocumentValidator
 
         self::validateMotion($block, $path, $errors, false);
 
+        // core.global (Batch D): a block-level component reference. The ref
+        // must be a component page uuid that exists in the tenant, and only
+        // the document types that may hold section references may hold one
+        // (components themselves are excluded — references stay one level).
+        if (($block['type'] ?? null) === 'core.global') {
+            $gRef = is_array($block['props'] ?? null) ? ($block['props']['ref'] ?? '') : '';
+            if (!is_string($gRef) || ($gRef !== '' && preg_match(CanonicalDocumentSchema::COMPONENT_REF_PATTERN, $gRef) !== 1)) {
+                $errors[] = ValidationResult::issue("{$path}.props.ref", 'invalid_global_ref', 'A global block reference must be empty or a component page ID (uuid).');
+            } elseif ($gRef !== '') {
+                $docType = (string) ($options['_document_type'] ?? '');
+                if ($docType !== '' && !in_array($docType, CanonicalDocumentSchema::GLOBAL_REF_DOCUMENT_TYPES, true)) {
+                    $errors[] = ValidationResult::issue("{$path}.props.ref", 'global_ref_not_allowed', "A '{$docType}' document cannot hold a global block (references are one level deep).");
+                } elseif (isset($options['partial_exists']) && is_callable($options['partial_exists']) && !($options['partial_exists'])($gRef)) {
+                    $errors[] = ValidationResult::issue("{$path}.props.ref", 'cross_tenant_or_missing_partial', "Referenced component '{$gRef}' does not exist in the active tenant.");
+                }
+            }
+        }
+
         // Validate optional editor metadata (display name + layer lock) if present
         if (array_key_exists('metadata', $block)) {
             $meta = $block['metadata'];

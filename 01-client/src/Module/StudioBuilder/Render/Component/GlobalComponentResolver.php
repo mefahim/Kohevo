@@ -87,11 +87,36 @@ final class GlobalComponentResolver
     {
         $refs = [];
         foreach ((array) ($document['sections'] ?? []) as $section) {
-            $ref = is_array($section) ? ($section['global_ref'] ?? null) : null;
+            if (!is_array($section)) {
+                continue;
+            }
+            $ref = $section['global_ref'] ?? null;
             if (is_string($ref) && $ref !== '' && preg_match(CanonicalDocumentSchema::GLOBAL_REF_PATTERN, $ref) === 1 && !in_array($ref, $refs, true)) {
                 $refs[] = $ref;
             }
+            // Block-level references (Batch D): a core.global block anywhere
+            // in the section's block tree references a component by uuid.
+            self::blockReferences((array) ($section['blocks'] ?? []), $refs);
         }
         return $refs;
+    }
+
+    /** @param list<string> $refs collected so far (by reference) */
+    private static function blockReferences(array $blocks, array &$refs): void
+    {
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (($block['type'] ?? null) === 'core.global') {
+                $ref = $block['props']['ref'] ?? null;
+                if (is_string($ref) && preg_match(CanonicalDocumentSchema::COMPONENT_REF_PATTERN, $ref) === 1 && !in_array($ref, $refs, true)) {
+                    $refs[] = $ref;
+                }
+            }
+            if (is_array($block['children'] ?? null)) {
+                self::blockReferences($block['children'], $refs);
+            }
+        }
     }
 }

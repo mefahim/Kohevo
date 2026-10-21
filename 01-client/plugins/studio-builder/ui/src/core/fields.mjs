@@ -10,7 +10,7 @@
 import { asList, asObject } from './doc.mjs';
 
 export const CONTROL = Object.freeze({
-  string: 'text', text: 'textarea', rich_text: 'richtext', number: 'number', boolean: 'checkbox',
+  string: 'text', text: 'textarea', inline_html: 'text', html: 'textarea', rich_text: 'richtext', number: 'number', boolean: 'checkbox',
   enum: 'select', url: 'url', image: 'url', media_ref: 'media', media: 'media', token_ref: 'token', link: 'link',
   repeater: 'repeater', object: 'object',
 });

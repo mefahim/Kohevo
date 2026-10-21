@@ -9,6 +9,8 @@
 
 import { asList } from './doc.mjs';
 import { resolveInlineTarget } from './inlineText.mjs';
+import { toInlineHtml } from './richtext.mjs';
+import { isLikelySafeUrl } from './fields.mjs';
 export const NODE_ATTR = 'data-sb-node';
 export const TYPE_ATTR = 'data-sb-type';
 const STYLE_ID = 'sbx-canvas-overlay';
@@ -155,6 +157,7 @@ export function attachCanvas(doc, handlers) {
 
   let activeEditingEl = null;
   let activeOriginalText = '';
+  let activeOriginalHtml = '';
   let activeSpec = null;
 
   function finishInlineEdit(commit = true) {
@@ -178,10 +181,21 @@ export function attachCanvas(doc, handlers) {
     const nodeId = nodeEl ? nodeEl.getAttribute(NODE_ATTR) : null;
     const spec = activeSpec;
     activeSpec = null;
-    const raw = spec && spec.multiline && typeof el.innerText === 'string' ? el.innerText : (el.textContent || '');
+    let raw;
+    let original;
+    if (spec && spec.format) {
+      // Formatted props commit the inline HTML subset, normalized to what
+      // the server accepts (Batch D); the comparison uses the same
+      // normalization on both sides so a no-op edit stays a no-op.
+      raw = toInlineHtml(el.innerHTML || '', { multiline: !!spec.multiline });
+      original = activeOriginalHtml;
+    } else {
+      raw = spec && spec.multiline && typeof el.innerText === 'string' ? el.innerText : (el.textContent || '');
+      original = activeOriginalText;
+    }
     const newText = raw.trim();
 
-    if (commit && nodeId && spec && newText !== activeOriginalText.trim() && onInlineText) {
+    if (commit && nodeId && spec && newText !== original.trim() && onInlineText) {
       onInlineText(nodeId, newText, spec.prop);
     }
   }
@@ -201,6 +215,7 @@ export function attachCanvas(doc, handlers) {
     activeEditingEl = textEl;
     activeSpec = spec;
     activeOriginalText = textEl.textContent || '';
+    activeOriginalHtml = spec && spec.format ? toInlineHtml(textEl.innerHTML || '', { multiline: !!spec.multiline }) : '';
 
     textEl.setAttribute('contenteditable', 'true');
     textEl.setAttribute('spellcheck', 'false');
@@ -227,10 +242,18 @@ export function attachCanvas(doc, handlers) {
     const bubble = doc.createElement('div');
     bubble.className = BUBBLE_CLASS;
     bubble.setAttribute('contenteditable', 'false');
-    bubble.innerHTML = `
+    const fmtButtons = spec.format ? `
+      <button type="button" class="${BUBBLE_CLASS}__btn" data-fmt="bold" title="Bold"><strong>B</strong></button>
+      <button type="button" class="${BUBBLE_CLASS}__btn" data-fmt="italic" title="Italic"><em>I</em></button>
+      <button type="button" class="${BUBBLE_CLASS}__btn" data-fmt="link" title="Link">Link</button>
+      <button type="button" class="${BUBBLE_CLASS}__btn" data-fmt="unlink" title="Remove link">Unlink</button>
+    ` : '';
+    bubble.innerHTML = fmtButtons + `
       <button type="button" class="${BUBBLE_CLASS}__btn ${BUBBLE_CLASS}__btn--done" data-fmt="done" title="Done">✓ Done</button>
     `;
 
+    // Keep the canvas selection alive when a bubble button is pressed.
+    bubble.addEventListener('mousedown', (ev) => { ev.preventDefault(); });
     bubble.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -239,6 +262,17 @@ export function attachCanvas(doc, handlers) {
       const fmt = btn.getAttribute('data-fmt');
       if (fmt === 'done') {
         finishInlineEdit(true);
+        return;
+      }
+      if (!spec.format) return;
+      try { textEl.focus(); } catch (_) {}
+      if (fmt === 'bold') doc.execCommand('bold');
+      else if (fmt === 'italic') doc.execCommand('italic');
+      else if (fmt === 'unlink') doc.execCommand('unlink');
+      else if (fmt === 'link') {
+        const view = doc.defaultView;
+        const url = view && typeof view.prompt === 'function' ? view.prompt('Link URL', 'https://') : null;
+        if (url && isLikelySafeUrl(url.trim())) doc.execCommand('createLink', false, url.trim());
       }
     });
 
@@ -250,7 +284,8 @@ export function attachCanvas(doc, handlers) {
       if (ev.key === 'Escape') {
         ev.preventDefault();
         ev.stopPropagation();
-        textEl.textContent = activeOriginalText;
+        if (spec.format) textEl.innerHTML = activeOriginalHtml;
+        else textEl.textContent = activeOriginalText;
         finishInlineEdit(false);
       } else if (ev.key === 'Enter') {
         const t = (textEl.tagName || '').toLowerCase();

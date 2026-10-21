@@ -116,21 +116,21 @@ final class BlockRegistry
             category: 'layout',
             icon: 'rocket',
             schema: FieldSchema::define([
-                ['key' => 'eyebrow', 'type' => 'string', 'label' => 'Eyebrow', 'required' => false, 'default' => '', 'max_length' => 120],
-                ['key' => 'heading', 'type' => 'string', 'label' => 'Heading', 'required' => true, 'default' => 'Welcome', 'max_length' => 255],
+                ['key' => 'eyebrow', 'type' => 'inline_html', 'label' => 'Eyebrow', 'required' => false, 'default' => '', 'max_length' => 120],
+                ['key' => 'heading', 'type' => 'inline_html', 'label' => 'Heading', 'required' => true, 'default' => 'Welcome', 'max_length' => 255],
                 ['key' => 'highlight', 'type' => 'string', 'label' => 'Highlighted Word', 'required' => false, 'default' => '', 'max_length' => 100],
                 ['key' => 'highlight_color_token', 'type' => 'token_ref', 'label' => 'Highlight colour (theme)', 'required' => false, 'default' => null],
                 ['key' => 'highlight_color', 'type' => 'string', 'label' => 'Highlight colour (custom)', 'required' => false, 'default' => '', 'max_length' => 40, 'format' => 'color', 'pattern' => Html::HIGHLIGHT_COLOR_PATTERN],
                 ['key' => 'highlight_italic', 'type' => 'boolean', 'label' => 'Highlight in italic', 'required' => false, 'default' => false],
                 ['key' => 'highlight_weight', 'type' => 'enum', 'label' => 'Highlight weight', 'required' => false, 'allowed_values' => ['inherit', 'normal', 'medium', 'bold'], 'default' => 'inherit'],
                 ['key' => 'highlight_underline', 'type' => 'boolean', 'label' => 'Highlight underlined', 'required' => false, 'default' => false],
-                ['key' => 'subheading', 'type' => 'text', 'label' => 'Subheading', 'required' => false, 'default' => '', 'max_length' => 1000],
+                ['key' => 'subheading', 'type' => 'inline_html', 'label' => 'Subheading', 'required' => false, 'default' => '', 'max_length' => 1000],
                 ['key' => 'primary_cta', 'type' => 'link', 'label' => 'Primary Call to Action', 'required' => false, 'default' => null],
                 ['key' => 'media', 'type' => 'media_ref', 'label' => 'Hero Image', 'required' => false, 'default' => null],
                 ['key' => 'accent_token', 'type' => 'token_ref', 'label' => 'Accent Token', 'required' => false, 'default' => null],
             ]),
             allowsChildren: false,
-            inlineText: [['prop' => 'heading', 'selector' => '.sb-hero__heading'], ['prop' => 'eyebrow', 'selector' => '.sb-hero__eyebrow'], ['prop' => 'subheading', 'selector' => '.sb-hero__subheading']],
+            inlineText: [['prop' => 'heading', 'selector' => '.sb-hero__heading'], ['prop' => 'eyebrow', 'selector' => '.sb-hero__eyebrow'], ['prop' => 'subheading', 'selector' => '.sb-hero__subheading', 'multiline' => true]],
         ));
 
         // 2. core.heading
@@ -143,7 +143,7 @@ final class BlockRegistry
             category: 'content',
             icon: 'heading',
             schema: FieldSchema::define([
-                ['key' => 'text', 'type' => 'string', 'label' => 'Heading Text', 'required' => true, 'default' => 'Section Heading', 'max_length' => 300],
+                ['key' => 'text', 'type' => 'inline_html', 'label' => 'Heading Text', 'required' => true, 'default' => 'Section Heading', 'max_length' => 300],
                 ['key' => 'highlight', 'type' => 'string', 'label' => 'Highlighted Word', 'required' => false, 'default' => '', 'max_length' => 100],
                 ['key' => 'highlight_color_token', 'type' => 'token_ref', 'label' => 'Highlight colour (theme)', 'required' => false, 'default' => null],
                 ['key' => 'highlight_color', 'type' => 'string', 'label' => 'Highlight colour (custom)', 'required' => false, 'default' => '', 'max_length' => 40, 'format' => 'color', 'pattern' => Html::HIGHLIGHT_COLOR_PATTERN],
@@ -222,7 +222,7 @@ final class BlockRegistry
             category: 'content',
             icon: 'list-check',
             schema: FieldSchema::define([
-                ['key' => 'title', 'type' => 'string', 'label' => 'Title', 'required' => false, 'default' => '', 'max_length' => 200],
+                ['key' => 'title', 'type' => 'inline_html', 'label' => 'Title', 'required' => false, 'default' => '', 'max_length' => 200],
                 ['key' => 'columns', 'type' => 'number', 'label' => 'Columns', 'required' => false, 'default' => 3, 'min' => 1, 'max' => 4, 'integer_only' => true],
                 [
                     'key'        => 'items',
@@ -358,14 +358,14 @@ final class BlockRegistry
             category: 'content',
             icon: 'pilcrow',
             schema: FieldSchema::define([
-                ['key' => 'content', 'type' => 'text', 'label' => 'Text Content', 'required' => false, 'default' => '', 'max_length' => 5000],
+                ['key' => 'content', 'type' => 'inline_html', 'label' => 'Text Content', 'required' => false, 'default' => '', 'max_length' => 5000],
                 ['key' => 'size', 'type' => 'enum', 'label' => 'Size', 'required' => false, 'allowed_values' => ['xs', 'sm', 'base', 'lg', 'xl', 'lead'], 'default' => 'base'],
                 ['key' => 'align', 'type' => 'enum', 'label' => 'Alignment', 'required' => false, 'allowed_values' => ['left', 'center', 'right', 'justify'], 'default' => 'left'],
                 ['key' => 'color_token', 'type' => 'token_ref', 'label' => 'Color Token', 'required' => false, 'default' => null],
             ]),
             allowsChildren: false,
             allowedBindingProviders: ['content.posts', 'content.authors', 'content.taxonomy', 'booking.services', 'membership.plans', 'forms.form'],
-            inlineText: [['prop' => 'content', 'selector' => '.sb-text']],
+            inlineText: [['prop' => 'content', 'selector' => '.sb-text', 'multiline' => true]],
         ));
 
         // 13. core.query_loop
@@ -524,6 +524,37 @@ final class BlockRegistry
                 ['key' => 'trigger_variant', 'type' => 'enum', 'label' => 'Trigger Variant', 'required' => false, 'allowed_values' => ['primary', 'secondary', 'outline', 'ghost'], 'default' => 'primary'],
             ]),
             allowsChildren: true,
+        ));
+
+        // 19b. core.html — custom HTML / embed (sanitized by EmbedHtmlSanitizer)
+        $registry->register(new DeclarativeBlockDefinition(
+            type: 'core.html',
+            version: 1,
+            label: 'Custom HTML',
+            title: 'HTML',
+            description: 'Custom markup and embeds (sanitized)',
+            category: 'advanced',
+            icon: 'code',
+            schema: FieldSchema::define([
+                ['key' => 'html', 'type' => 'html', 'label' => 'HTML', 'required' => false, 'default' => '', 'max_length' => 20000],
+            ]),
+            allowsChildren: false,
+        ));
+
+        // 19c. core.global — a Global Component placed as a block (Batch D):
+        // the component's blocks are spliced into this block's slot at render.
+        $registry->register(new DeclarativeBlockDefinition(
+            type: 'core.global',
+            version: 1,
+            label: 'Global block',
+            title: 'Global',
+            description: 'A synced global component, placed as a block',
+            category: 'advanced',
+            icon: 'layout-section',
+            schema: FieldSchema::define([
+                ['key' => 'ref', 'type' => 'string', 'label' => 'Component (page ID)', 'required' => false, 'default' => '', 'max_length' => 36, 'pattern' => '/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/'],
+            ]),
+            allowsChildren: false,
         ));
 
         // 20. layout.offcanvas
@@ -844,13 +875,13 @@ final class BlockRegistry
             category: 'content',
             icon: 'quotes',
             schema: FieldSchema::define([
-                ['key' => 'text', 'type' => 'text', 'label' => 'Quote', 'required' => true, 'default' => 'A short, memorable line from someone who matters.', 'max_length' => 1000],
+                ['key' => 'text', 'type' => 'inline_html', 'label' => 'Quote', 'required' => true, 'default' => 'A short, memorable line from someone who matters.', 'max_length' => 1000],
                 ['key' => 'author', 'type' => 'string', 'label' => 'Author', 'required' => false, 'default' => '', 'max_length' => 120],
                 ['key' => 'role', 'type' => 'string', 'label' => 'Role or company', 'required' => false, 'default' => '', 'max_length' => 120],
                 ['key' => 'align', 'type' => 'enum', 'label' => 'Alignment', 'required' => false, 'allowed_values' => ['left', 'center'], 'default' => 'left'],
             ]),
             allowsChildren: false,
-            inlineText: [['prop' => 'text', 'selector' => '.sb-quote__text p']],
+            inlineText: [['prop' => 'text', 'selector' => '.sb-quote__text p', 'multiline' => true]],
         ));
 
         // 32. core.link — a plain text link (core.button stays the call-to-action).
@@ -991,6 +1022,8 @@ final class BlockRegistry
                     'item_schema' => FieldSchema::define([
                         ['key' => 'label', 'type' => 'string', 'label' => 'Label', 'required' => true, 'max_length' => 80],
                         ['key' => 'url', 'type' => 'url', 'label' => 'URL', 'required' => true, 'max_length' => 1000],
+                        ['key' => 'new_tab', 'type' => 'boolean', 'label' => 'Open in new tab', 'required' => false, 'default' => false],
+                        ['key' => 'parent', 'type' => 'number', 'label' => 'Submenu of link # (0 = top level)', 'required' => false, 'default' => 0, 'min' => 0, 'max' => 12, 'integer_only' => true],
                     ]),
                 ],
             ]),

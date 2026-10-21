@@ -27,6 +27,7 @@ import {
   IconTable,
   IconTimer,
   IconCalendar,
+  IconCode,
 } from './Icons.jsx';
 
 export const DRAG_TYPE_NEW = 'application/x-kohevo-studio-block-type';
@@ -48,6 +49,7 @@ export const ICON_BY_NAME = {
   menu: IconMenuLinks,
   pin: IconMapPin,
   box: IconBox,
+  code: IconCode,
   'layout-section': IconLayoutSection,
   video: IconVideo,
   gallery: IconGallery,

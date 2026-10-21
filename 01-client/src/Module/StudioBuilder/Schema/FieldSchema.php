@@ -28,6 +28,8 @@ final class FieldSchema implements \JsonSerializable
         'string',
         'text',
         'rich_text',
+        'inline_html',
+        'html',
         'number',
         'boolean',
         'enum',
@@ -425,6 +427,63 @@ final class FieldSchema implements \JsonSerializable
         return null;
     }
 
+    /**
+     * Validate an `inline_html` value (Batch D): plain text plus the inline
+     * formatting subset — strong/em/b/i/u/s, links, the highlight span and
+     * line breaks. No block-level tags, no attributes outside <a> (and the
+     * highlight span), no handlers/styles. The render side re-checks with
+     * RichTextSanitizer, whose allowlist covers exactly this subset.
+     */
+    public static function validateInlineHtml(string $html, int $maxLength = 1000): ?string
+    {
+        if (mb_strlen($html, 'UTF-8') > $maxLength) {
+            return "Inline HTML exceeds maximum allowed length of {$maxLength} characters.";
+        }
+        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $html)) {
+            return 'Inline HTML must not contain binary control characters.';
+        }
+        if (self::containsExecutableOrSqlFragment($html)) {
+            return 'Inline HTML contains forbidden executable, script, or SQL patterns.';
+        }
+        if (preg_match('/\s(on[a-z]+|style|srcdoc|formaction)\s*=/i', $html)) {
+            return 'Inline HTML contains disallowed event handler or inline style attributes.';
+        }
+
+        $allowedTags = ['strong', 'em', 'b', 'i', 'u', 's', 'a', 'span', 'br'];
+        if (preg_match_all('/<\s*(\/?)\s*([a-zA-Z0-9-]+)([^>]*)>/', $html, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $tag = strtolower($m[2]);
+                $attrString = trim($m[3]);
+                if (!in_array($tag, $allowedTags, true)) {
+                    return "Inline HTML contains unsupported HTML tag '<{$tag}>' (inline formatting only).";
+                }
+                if ($m[1] === '/') {
+                    if ($attrString !== '') {
+                        return "Closing HTML tag '</{$tag}>' must not contain attributes.";
+                    }
+                    continue;
+                }
+                if ($tag === 'br') {
+                    if (trim($attrString, '/ ') !== '') {
+                        return 'The <br> tag must not contain attributes.';
+                    }
+                    continue;
+                }
+                if ($tag === 'span' && $attrString !== '' && \Slate\Module\StudioBuilder\Render\RichTextSanitizer::isHighlightAttr($attrString)) {
+                    continue;
+                }
+                if ($tag !== 'a' && $attrString !== '') {
+                    return "HTML tag '<{$tag}>' does not permit attributes in inline HTML.";
+                }
+                if ($tag === 'a' && $attrString !== '' && !self::validateAnchorAttributes($attrString)) {
+                    return 'Anchor tag <a> in inline HTML contains invalid or unsafe attributes.';
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static function validateAnchorAttributes(string $attrString): bool
     {
         $remaining = trim($attrString);
@@ -513,6 +572,45 @@ final class FieldSchema implements \JsonSerializable
                 $richErr = self::validateRichText($val);
                 if ($richErr !== null) {
                     $errors[] = ValidationResult::issue($path, 'unsafe_rich_text', $richErr);
+                }
+                break;
+
+            case 'inline_html':
+                if (!is_string($val)) {
+                    $errors[] = ValidationResult::issue($path, 'invalid_type', 'Expected inline_html string.');
+                    return;
+                }
+                $inlineErr = self::validateInlineHtml($val, (int) ($field['max_length'] ?? 1000));
+                if ($inlineErr !== null) {
+                    $errors[] = ValidationResult::issue($path, 'unsafe_inline_html', $inlineErr);
+                }
+                break;
+
+            case 'html':
+                if (!is_string($val)) {
+                    $errors[] = ValidationResult::issue($path, 'invalid_type', 'Expected html string.');
+                    return;
+                }
+                if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $val)) {
+                    $errors[] = ValidationResult::issue($path, 'invalid_text_chars', 'HTML field must not contain binary control characters.');
+                    return;
+                }
+                $maxLen = (int) ($field['max_length'] ?? 20000);
+                if (mb_strlen($val, 'UTF-8') > $maxLen) {
+                    $errors[] = ValidationResult::issue($path, 'max_length_exceeded', "HTML exceeds maximum length of {$maxLen}.");
+                }
+                if (self::containsExecutableOrSqlFragment($val)) {
+                    $errors[] = ValidationResult::issue($path, 'unsafe_html', 'HTML contains forbidden executable or SQL patterns.');
+                }
+                // Never-allowed elements are rejected on write (the render
+                // sanitizer strips them too, as a second line of defence).
+                // Iframes are NOT rejected here: EmbedHtmlSanitizer enforces
+                // the embed host allowlist at render.
+                if (preg_match('/<\s*\/?\s*(script|style|form|input|button|select|textarea|object|embed|link|meta|base|svg|math|canvas|frame|frameset|applet)\b/i', $val)) {
+                    $errors[] = ValidationResult::issue($path, 'unsafe_html', 'HTML contains elements that are never allowed in a block.');
+                }
+                if (preg_match('/\s(on[a-z]+|srcdoc|formaction)\s*=/i', $val)) {
+                    $errors[] = ValidationResult::issue($path, 'unsafe_html', 'HTML contains event handler or srcdoc attributes.');
                 }
                 break;
 
@@ -704,6 +802,8 @@ final class FieldSchema implements \JsonSerializable
             case 'string':
             case 'text':
             case 'rich_text':
+            case 'inline_html':
+            case 'html':
             case 'url':
             case 'token_ref':
                 return (string) $val;
@@ -764,7 +864,7 @@ final class FieldSchema implements \JsonSerializable
     private static function typeDefault(array $field): mixed
     {
         return match ((string) $field['type']) {
-            'string', 'text', 'rich_text' => '',
+            'string', 'text', 'rich_text', 'inline_html', 'html' => '',
             'number'                      => !empty($field['integer_only']) ? 0 : 0.0,
             'boolean'                     => false,
             'enum'                        => $field['allowed_values'][0] ?? null,

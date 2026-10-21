@@ -1127,6 +1127,42 @@
     if (off.length) mount(function () { off.forEach(function (un) { un(); }); });
   }
 
+  /* Nav submenus: hover/focus opens them via CSS; on touch devices (no
+     hover) the first tap on a parent link opens its submenu instead of
+     navigating, the second follows the link. Escape / outside tap closes. */
+  function initNavMenus(root) {
+    var items = qsa('.sb-nav__item--has-sub', root);
+    if (!items.length) return;
+    var touch = window.matchMedia && window.matchMedia('(hover: none)').matches;
+    function close(item) {
+      item.removeAttribute('data-sb-open');
+      var a = item.querySelector(':scope > a');
+      if (a) a.setAttribute('aria-expanded', 'false');
+    }
+    function open(item) {
+      items.forEach(function (other) { if (other !== item) close(other); });
+      item.setAttribute('data-sb-open', 'true');
+      var a = item.querySelector(':scope > a');
+      if (a) a.setAttribute('aria-expanded', 'true');
+    }
+    items.forEach(function (item) {
+      var link = item.querySelector(':scope > a');
+      if (!link) return;
+      link.addEventListener('click', function (ev) {
+        if (touch && item.getAttribute('data-sb-open') !== 'true') {
+          ev.preventDefault();
+          open(item);
+        }
+      });
+    });
+    document.addEventListener('click', function (ev) {
+      items.forEach(function (item) { if (!item.contains(ev.target)) close(item); });
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') items.forEach(close);
+    });
+  }
+
 /* ── Boot / teardown ─────────────────────────────────────────────────────
    * `StudioRuntime.mount()` and `.disable()` are what the A/B toggle calls.
    * disable() must leave the page byte-identical to a no-JS Studio render,
@@ -1141,6 +1177,7 @@
     ['stickyHeader', initStickyHeader],
     ['overlays', initOverlays],
     ['popups', initPopups],
+    ['navMenus', initNavMenus],
     ['galleryLightbox', initGalleryLightbox],
     ['lightbox', initLightbox],
     ['tabs', initTabs],

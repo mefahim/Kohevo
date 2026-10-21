@@ -69,6 +69,16 @@ final class DocumentRenderer
     ) {}
 
     /**
+     * The components map of the renderSections() call currently in flight:
+     * renderBlock() receives no components parameter (its signature is the
+     * recursive workhorse), so block-level references (core.global, Batch D)
+     * read the map from here. Set and restored by renderSections().
+     *
+     * @var array<string, list<array<string, mixed>>>
+     */
+    private array $activeComponents = [];
+
+    /**
      * @param list<array<string, mixed>> $sections prepared (normalized) sections
      * @param array<string, list<array<string, mixed>>> $components ref => the referenced
      *        Global Component's PREPARED published sections (resolved by the compiler);
@@ -76,13 +86,19 @@ final class DocumentRenderer
      */
     public function renderSections(array $sections, RenderContext $context, ResolvedTheme $theme, RenderCollector $collector, bool $deferDynamic, array $components = []): string
     {
-        $html = '';
-        foreach ($sections as $section) {
-            if (is_array($section)) {
-                $html .= $this->renderSection($section, $context, $theme, $collector, $deferDynamic, $components);
+        $previous = $this->activeComponents;
+        $this->activeComponents = $components;
+        try {
+            $html = '';
+            foreach ($sections as $section) {
+                if (is_array($section)) {
+                    $html .= $this->renderSection($section, $context, $theme, $collector, $deferDynamic, $components);
+                }
             }
+            return SiteLinks::rebase($html, $context->site->basePath());
+        } finally {
+            $this->activeComponents = $previous;
         }
-        return SiteLinks::rebase($html, $context->site->basePath());
     }
 
     /**
@@ -132,7 +148,9 @@ final class DocumentRenderer
             : [];
 
         $scope = new BlockRenderScope($block, $context, $this->media, $theme, $collector, $children, $rows);
-        $inner = $renderer->render($scope);
+        $inner = $type === 'core.global'
+            ? $this->expandGlobalBlock($block, $context, $theme, $collector, $deferDynamic)
+            : $renderer->render($scope);
         $wrapperClasses = $renderer instanceof WrapperClassesInterface ? $renderer->wrapperClasses($scope) : [];
 
         $customClasses = [];
@@ -228,6 +246,35 @@ final class DocumentRenderer
         return $renderer->isDynamic()
             || $definition->requiredEntitlement() !== null
             || (is_array($block['bindings'] ?? null) && $block['bindings'] !== []);
+    }
+
+    /**
+     * A `core.global` block's content (Batch D): the referenced component's
+     * blocks, spliced in section order and rendered as embedded content. The
+     * component's own section wrappers are NOT carried over — the block's own
+     * wrapper (built by renderBlock) is the box. A ref that was not resolved
+     * into the active components map renders as unavailable.
+     *
+     * @param array<string, mixed> $block
+     */
+    private function expandGlobalBlock(array $block, RenderContext $context, ResolvedTheme $theme, RenderCollector $collector, bool $deferDynamic): string
+    {
+        $ref = trim((string) (is_array($block['props'] ?? null) ? ($block['props']['ref'] ?? '') : ''));
+        if ($ref === '' || !isset($this->activeComponents[$ref]) || !is_array($this->activeComponents[$ref])) {
+            return $this->unavailable('component_unavailable', $context);
+        }
+
+        $inner = '';
+        foreach ($this->activeComponents[$ref] as $componentSection) {
+            if (!is_array($componentSection) || !empty($componentSection['global_ref'])) {
+                continue; // references are one level deep — never resolved recursively
+            }
+            foreach (self::markEmbedded(is_array($componentSection['blocks'] ?? null) ? $componentSection['blocks'] : []) as $embedded) {
+                $inner .= $this->renderBlock($embedded, $context, $theme, $collector, $deferDynamic);
+            }
+        }
+
+        return $inner;
     }
 
     /** Non-executable fallback: nothing in public output, a labelled notice when authoring. */

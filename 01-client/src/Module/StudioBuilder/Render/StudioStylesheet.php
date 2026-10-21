@@ -18,7 +18,7 @@ use Slate\Module\StudioBuilder\Document\CanonicalDocumentSchema;
 
 final class StudioStylesheet
 {
-    public const VERSION = '18';
+    public const VERSION = '20';
 
     private const MIN_WIDTH = ['sm' => 640, 'md' => 768, 'lg' => 1024];
 
@@ -132,6 +132,13 @@ final class StudioStylesheet
             . '.sb-body .sb-nav a.sb-nav__link{color:inherit}.sb-body .sb-nav a.sb-nav__link:hover{color:var(--sb-color-accent)}'
             . '.sb-nav--underline .sb-nav__link{text-decoration:underline;text-underline-offset:.25em}'
             . '.sb-nav--pill .sb-nav__link{padding:.35rem .9rem;border-radius:999px}.sb-nav--pill .sb-nav__link:hover{background:var(--sb-border-default)}'
+            // Submenus (Batch D): a hover/focus dropdown panel for horizontal menus, an indented inline list for vertical ones.
+            . '.sb-nav__item--has-sub{position:relative}'
+            . '.sb-nav__sub{list-style:none;margin:0;padding:.5rem;position:absolute;top:100%;left:0;min-width:12rem;background:#fff;border:1px solid var(--sb-border-default);border-radius:.75rem;box-shadow:0 16px 40px -16px rgba(15,23,42,.25);display:none;flex-direction:column;gap:.125rem;z-index:60}'
+            . '.sb-nav--right .sb-nav__sub{left:auto;right:0}'
+            . '.sb-nav__sub .sb-nav__link{display:block;white-space:nowrap;padding:.4rem .6rem;border-radius:.5rem}'
+            . '.sb-nav__item--has-sub:hover>.sb-nav__sub,.sb-nav__item--has-sub:focus-within>.sb-nav__sub,.sb-nav__item--has-sub[data-sb-open="true"]>.sb-nav__sub{display:flex}'
+            . '.sb-nav--vertical .sb-nav__sub{position:static;min-width:0;border:0;box-shadow:none;border-radius:0;padding:0 0 0 1rem;background:transparent}'
             . '.sb-link-row{margin:0 0 1rem}.sb-link-row--center{text-align:center}.sb-link-row--right{text-align:right}'
             . '.sb-link{color:var(--sb-color-accent);font-weight:600}.sb-link--plain{text-decoration:none}'
             . '.sb-link--arrow{text-decoration:none}.sb-link--arrow::after{content:" \\2192"}'
@@ -148,6 +155,15 @@ final class StudioStylesheet
             . '.sb-stat__label{font-size:.875rem;line-height:1.4;color:var(--sb-text-muted)}'
             . '.sb-catalog__meta{color:var(--sb-text-muted);display:flex;gap:1rem;margin:.25rem 0 0}'
             . '.sb-catalog__price{font-weight:600;color:var(--sb-text-primary)}'
+            // Shop product grid (Batch D5): the shared catalogue list becomes
+            // a real multi-column grid, collapsing on smaller viewports.
+            . '.sb-catalog--shop .sb-catalog__list--cols-2{grid-template-columns:repeat(2,1fr)}'
+            . '.sb-catalog--shop .sb-catalog__list--cols-3{grid-template-columns:repeat(3,1fr)}'
+            . '.sb-catalog--shop .sb-catalog__list--cols-4{grid-template-columns:repeat(4,1fr)}'
+            . '@media (max-width:900px){.sb-catalog--shop .sb-catalog__list{grid-template-columns:repeat(2,1fr)}}'
+            . '@media (max-width:560px){.sb-catalog--shop .sb-catalog__list{grid-template-columns:1fr}}'
+            . '.sb-catalog__image{display:block;width:100%;height:auto;border-radius:var(--sb-radius-md);margin:0 0 .75rem}'
+            . '.sb-catalog__badge{display:inline-block;padding:.3rem .7rem;border-radius:999px;background:var(--sb-border-default);font-size:.85rem}'
             . '.sb-stack{display:flex}.sb-stack--vertical{flex-direction:column}.sb-stack--horizontal{flex-direction:row;flex-wrap:wrap}'
             . '.sb-embed-card__kind{margin:0 0 .25rem;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--sb-text-muted)}'
             . '.sb-embed-card__fields{margin:.75rem 0 0;padding-left:1.25rem;color:var(--sb-text-muted)}'
