@@ -93,6 +93,7 @@ INSERT INTO plugins (slug,name,version,status,manifest_json) VALUES
   ('booking','Booking Plus','1.0.0','active','{"slug":"booking","name":"Booking Plus"}'),
   ('forms','Forms','1.0.0','active','{"slug":"forms","name":"Forms"}'),
   ('membership','Membership','1.0.0','active','{"slug":"membership","name":"Membership"}'),
+  ('restaurant','Restaurant','0.2.0','active','{"slug":"restaurant","name":"Restaurant"}'),
   ('stripe-payment','Stripe Payment Gateway','1.0.0','active','{"slug":"stripe-payment","name":"Stripe Payment Gateway"}')
   ON DUPLICATE KEY UPDATE status=VALUES(status), manifest_json=VALUES(manifest_json);
 SQL
@@ -120,6 +121,12 @@ php tests/fixtures/booking-schema.php
 
 mysql -h "${DB_HOST:-127.0.0.1}" -u"$DB_USER" ${DB_PASS:+-p"$DB_PASS"} "$TEST_DB" < plugins/membership/install.sql
 mysql -h "${DB_HOST:-127.0.0.1}" -u"$DB_USER" ${DB_PASS:+-p"$DB_PASS"} "$TEST_DB" < plugins/stripe-payment/install.sql
+mysql -h "${DB_HOST:-127.0.0.1}" -u"$DB_USER" ${DB_PASS:+-p"$DB_PASS"} "$TEST_DB" < plugins/restaurant/install.sql
+
+# Same story as booking above: the REST-001 settlement columns and the
+# unique stripe_pi_id index live in Restaurant::runMigrations(), not only
+# in install.sql — apply them so upgraded-shape and fresh-shape agree.
+php tests/fixtures/restaurant-schema.php
 # Content the page-render golden tests expect to find.
 RENDER_SEED="tests/fixtures/render-seed.sql"
 if [ ! -f "$RENDER_SEED" ] && [ -f "archive/tests/fixtures/render-seed.sql" ]; then

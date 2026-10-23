@@ -50,6 +50,14 @@ route or build step.
 - The plugin also listens on the shared `stripe_webhook_event` action, so a payment settles even if the browser poll is interrupted — **idempotent**: a repeated webhook never double-charges or double-closes
 - Requires the **stripe-payment** plugin to be configured; without it, the POS still takes cash and the card button is disabled with a hint
 
+### Payment settlement (REST-001)
+- Every Stripe path (Terminal poll, webhook, hosted Checkout return, Payment Element confirm) settles through one settler in `RestaurantAPI`. A payment is marked paid only after Stripe's **actual captured amount and currency reconcile exactly** against the payment row (`amount_cents + tip_cents`, and the currency stamped on the row when the payment was created).
+- Settlement is claimed with a short lease (token + timestamp on the payment row), so a webhook and a POS poll racing the same payment cannot both take financial side effects; an interrupted settlement self-heals on the next poll, return-page visit, or webhook redelivery.
+- The settlement runs in the **payment row's tenant**, never the webhook request's ambient tenant.
+- A mismatch never settles: the payment is flagged (`settlement_issue`), an audit row is written, and an admin notification is raised. Resolving flagged payments (refund / authorised manual settle) is a separate workflow — see ticket REST-002.
+- The Stripe webhook endpoint must be subscribed to **`payment_intent.succeeded`** and **`payment_intent.payment_failed`**. Hosted Checkout orders settle on the customer's return page (`confirm.php`); the webhook is the backstop for the Terminal and Payment Element flows, whose PaymentIntents carry `metadata.source = restaurant`.
+- Upgrades add the settlement columns and a unique `(tenant_id, stripe_pi_id)` index automatically — but only after a duplicate scan proves the index is safe. If legacy duplicates block it, nothing is deleted or rewritten: the state is recorded in the `restaurant.settlement_index` setting, an admin notification is raised, and `php bin/restaurant-settlement-preflight.php` (from `01-client/`) prints the read-only duplicate report for manual resolution.
+
 ### Customers
 - Light standalone CRUD (`admin/customers.php`): name, phone, email, notes
 - The POS can find-or-create by phone when attaching a guest to a check

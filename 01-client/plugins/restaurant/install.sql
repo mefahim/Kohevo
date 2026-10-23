@@ -202,11 +202,17 @@ CREATE TABLE IF NOT EXISTS `restaurant_payments` (
     `tip_cents`       INT UNSIGNED NOT NULL DEFAULT 0,
     `status`          ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'paid',
     `stripe_pi_id`    VARCHAR(120) NULL,
+    `stripe_session_id` VARCHAR(120) NULL,
     `stripe_charge_id` VARCHAR(120) NULL,
+    `currency`        CHAR(3) NULL,
+    `settlement_claim_token` CHAR(32) NULL,
+    `settlement_claimed_at`  DATETIME NULL,
+    `settlement_issue`       VARCHAR(40) NULL,
     `reader_id`       INT UNSIGNED NULL,
     `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `tenant_order` (`tenant_id`, `order_id`),
+    UNIQUE KEY `uniq_tenant_pi` (`tenant_id`, `stripe_pi_id`),
     KEY `pi` (`stripe_pi_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
