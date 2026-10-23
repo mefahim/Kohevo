@@ -8,6 +8,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  # French completeness + version consistency run as their OWN job.
+  # They used to be an early step inside licensing-ci, where the legacy
+  # translation backlog (1,253 missing entries on main) failed the step
+  # and GitHub skipped every later step — provisioning and ALL test
+  # suites never executed. As a separate job the gate stays fully
+  # visible and keeps the run red until the backlog is fixed, while the
+  # test jobs run to completion and report real results.
+  i18n-version:
+    name: French pack & version consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, sodium, curl, json, openssl, dom, xml
+          coverage: none
+
+      - name: Check French pack completeness and version consistency
+        run: |
+          php scripts/check-i18n.php
+          V="$(tr -d '[:space:]' < VERSION)"
+          for f in 01-client/config.php 01-client/install.php 02-licensing/config.php 02-licensing/install.php; do
+            grep -q "'SLATE_VERSION', '$V'" "$f" || { echo "::error file=$f::SLATE_VERSION does not match VERSION ($V)"; exit 1; }
+          done
+          echo "Version $V is consistent across both apps."
+
   licensing-ci:
     name: Licensing & Client Suites (${{ matrix.db_label }})
     runs-on: ubuntu-latest
@@ -69,14 +100,10 @@ jobs:
           find 01-client 02-licensing -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
           echo "All PHP files in 01-client and 02-licensing parsed cleanly."
 
-      - name: Check French pack completeness and version consistency
-        run: |
-          php scripts/check-i18n.php
-          V="$(tr -d '[:space:]' < VERSION)"
-          for f in 01-client/config.php 01-client/install.php 02-licensing/config.php 02-licensing/install.php; do
-            grep -q "'SLATE_VERSION', '$V'" "$f" || { echo "::error file=$f::SLATE_VERSION does not match VERSION ($V)"; exit 1; }
-          done
-          echo "Version $V is consistent across both apps."
+      # The French pack + version consistency check lives in the
+      # dedicated i18n-version job above — deliberately NOT a step here,
+      # so its (currently failing, legacy-backlog) result can never skip
+      # provisioning or the test suites in this job again.
 
       - name: Provision test databases and .env files
         run: |
