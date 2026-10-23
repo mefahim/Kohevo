@@ -15,7 +15,8 @@ Auth::require();
 Auth::requirePerm('pageforge.edit');
 ModuleGuard::require('pageforge');
 
-require_once dirname(__DIR__) . '/lib/PageForgeRenderer.php';
+require_once dirname(__DIR__) . '/lib/PageForgeStore.php';
+PageForgeStore::wireGlobalResolver();
 
 header('Content-Type: application/json; charset=utf-8');
 

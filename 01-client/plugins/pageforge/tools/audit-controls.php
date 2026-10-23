@@ -26,6 +26,7 @@ function pfAuditSeed(string $type): array
 {
     return match ($type) {
         'image', 'image-box' => ['src' => 'https://seed.invalid/a.png'],
+        'form' => ['form_slug' => 'seed-form'],
         'video' => ['source' => 'youtube', 'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
         'gallery', 'image-carousel' => ['items' => [['src' => 'https://seed.invalid/a.png', 'caption' => 'seed']]],
         'icon-list' => ['items' => [['icon_name' => 'check', 'text' => 'seed', 'link_url' => '']]],
