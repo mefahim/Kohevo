@@ -89,9 +89,62 @@ final class PageForgeRenderer
         return $html;
     }
 
+    /** @var null|callable(int): ?array resolves a global page id to its document */
+    private static $globalResolver = null;
+
+    public static function setGlobalResolver(?callable $resolver): void
+    {
+        self::$globalResolver = $resolver;
+    }
+
+    /**
+     * Replace global-widget nodes with the referenced global document's
+     * elements, wrapped in a container carrying the referencing element's
+     * identity — so both the HTML render and the CSS compiler see the
+     * expanded tree. Depth-guarded against global cycles; an unresolvable
+     * reference stays a global-widget node (its render is a placeholder).
+     */
+    public static function expandGlobals(array $document, int $depth = 0): array
+    {
+        if ($depth >= 3 || self::$globalResolver === null || empty($document['elements']) || !is_array($document['elements'])) {
+            return $document;
+        }
+        $expand = function (array $elements) use (&$expand, $depth): array {
+            $out = [];
+            foreach ($elements as $el) {
+                if (!is_array($el)) {
+                    continue;
+                }
+                if (($el['elType'] ?? '') === 'widget' && ($el['widgetType'] ?? '') === 'global-widget') {
+                    $gid = (int) ($el['settings']['global_id'] ?? 0);
+                    $gdoc = $gid > 0 ? (self::$globalResolver)($gid) : null;
+                    if (is_array($gdoc) && !empty($gdoc['elements']) && is_array($gdoc['elements'])) {
+                        $inner = self::expandGlobals($gdoc, $depth + 1);
+                        $out[] = [
+                            'id' => (string) ($el['id'] ?? ''),
+                            'elType' => 'container',
+                            'settings' => is_array($el['settings'] ?? null) ? $el['settings'] : [],
+                            'elements' => $inner['elements'],
+                            'widgetType' => 'container',
+                        ];
+                        continue;
+                    }
+                }
+                if (!empty($el['elements']) && is_array($el['elements'])) {
+                    $el['elements'] = $expand($el['elements']);
+                }
+                $out[] = $el;
+            }
+            return $out;
+        };
+        $document['elements'] = $expand($document['elements']);
+        return $document;
+    }
+
     /** @return array{html: string, css: string} */
     public static function compile(array $document, int $pageId): array
     {
+        $document = self::expandGlobals($document);
         return [
             'html' => self::render($document, $pageId),
             'css' => PageForgeCss::compile($document['elements'] ?? [], $pageId),

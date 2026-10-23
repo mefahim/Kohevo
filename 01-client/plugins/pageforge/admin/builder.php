@@ -54,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $document = PageForgeStore::getDocument($pageId);
+PageForgeStore::wireGlobalResolver();
 $preview = PageForgeRenderer::compile($document, $pageId);
 $widgets = array_keys(PageForgeWidgets::all());
 

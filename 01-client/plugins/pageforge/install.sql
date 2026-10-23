@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS `pageforge_pages` (
     `title` VARCHAR(255) NOT NULL,
     `slug` VARCHAR(191) NOT NULL,
     `status` ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+    `kind` ENUM('page','part','popup','global') NOT NULL DEFAULT 'page',
+    `part` VARCHAR(20) NULL DEFAULT NULL,
     `active_draft_revision_id` BIGINT UNSIGNED NULL DEFAULT NULL,
     `published_revision_id` BIGINT UNSIGNED NULL DEFAULT NULL,
     `settings_json` MEDIUMTEXT NULL,

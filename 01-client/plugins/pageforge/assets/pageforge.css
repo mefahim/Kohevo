@@ -108,3 +108,11 @@
 .pf-alert--warning { background: #fff7e6; border-color: #f0d9a0; }
 .pf-alert--danger { background: #fdeeee; border-color: #f3bcbc; }
 .pf-anchor { display: block; height: 0; }
+
+/* Forms embed + popups (Phase 4) */
+.pf-form-frame { width: 100%; border: 0; display: block; background: transparent; }
+.pf-popup { position: fixed; inset: 0; z-index: 9999; background: rgba(15, 15, 20, 0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pf-popup[hidden] { display: none; }
+.pf-popup__box { position: relative; background: #fff; color: #191922; border-radius: 14px; max-width: 640px; width: 100%; max-height: 88vh; overflow: auto; padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+.pf-popup__close { position: absolute; top: 8px; right: 12px; border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: inherit; }
+.pf-global-missing { min-height: 8px; }

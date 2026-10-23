@@ -94,15 +94,55 @@ final class PageForgeWidgets
                 'text' => $text + ['default' => 'Click here'],
                 'link_url' => ['type' => 'url'],
                 'size' => ['type' => 'select', 'options' => ['sm', 'md', 'lg'], 'default' => 'md'],
+                'popup_id' => ['type' => 'number', 'min' => 0, 'max' => 1000000000],
             ],
             'style_controls' => ['background_color', 'color', 'border_radius', 'padding'],
             'render' => static function (array $s, string $children, array $el): string {
                 $size = (string) ($s['size'] ?? 'md');
                 if (!in_array($size, ['sm', 'md', 'lg'], true)) $size = 'md';
+                $popup = (int) ($s['popup_id'] ?? 0);
+                if ($popup > 0) {
+                    return '<a class="pf-button pf-button--' . $size . ' pf-popup-trigger ' . self::elClass($el)
+                        . '" href="#" data-pf-popup="' . $popup . '">' . self::esc((string) ($s['text'] ?? '')) . '</a>';
+                }
                 $href = !empty($s['link_url']) ? self::escUrl((string) $s['link_url']) : '#';
                 return '<a class="pf-button pf-button--' . $size . ' ' . self::elClass($el) . '" href="' . $href . '">'
                     . self::esc((string) ($s['text'] ?? '')) . '</a>';
             },
+        ];
+
+        $self['form'] = [
+            'label' => 'Form (Kohevo Forms)',
+            'icon' => 'form',
+            'controls' => [
+                'form_slug' => $text,
+                'form_height' => ['type' => 'number', 'min' => 100, 'max' => 2000, 'default' => 480],
+            ],
+            'render' => static function (array $s, string $children, array $el): string {
+                $slug = preg_replace('/[^a-zA-Z0-9-_]/', '', (string) ($s['form_slug'] ?? ''));
+                if ($slug === '') {
+                    return '<div class="pf-form pf-form--empty ' . self::elClass($el) . '">No form selected.</div>';
+                }
+                $height = max(100, min(2000, (int) ($s['form_height'] ?? 480)));
+                $base = defined('SLATE_URL') ? rtrim((string) SLATE_URL, '/') : '';
+                $src = $base . '/forms/' . $slug . '?embed=1';
+                return '<div class="pf-form ' . self::elClass($el) . '"><iframe class="pf-form-frame" src="'
+                    . self::esc($src) . '" title="Form" loading="lazy" style="height:' . $height . 'px"></iframe></div>';
+            },
+        ];
+
+        $self['global-widget'] = [
+            'label' => 'Global widget',
+            'icon' => 'widget',
+            'controls' => [
+                'global_id' => ['type' => 'number', 'min' => 0, 'max' => 1000000000],
+            ],
+            'style_controls' => [],
+            // Real content is substituted at compile time by
+            // PageForgeRenderer::expandGlobals(); this render is only the
+            // unexpanded fallback (no resolver wired).
+            'render' => static fn (array $s, string $children, array $el): string =>
+                '<div class="pf-global-missing" data-global-id="' . (int) ($s['global_id'] ?? 0) . '"></div>',
         ];
 
         $self['image'] = [

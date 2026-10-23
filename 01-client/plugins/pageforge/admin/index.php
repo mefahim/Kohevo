@@ -29,7 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($title === '') {
             $flash = ['type' => 'error', 'msg' => __('pageforge_title_required', 'A title is required.')];
         } else {
-            $newId = PageForgeStore::createPage($title, '', $userId);
+            $kindSel = (string) ($_POST['kind'] ?? 'page');
+            $kind = 'page';
+            $part = null;
+            if ($kindSel === 'part-header') { $kind = 'part'; $part = 'header'; }
+            elseif ($kindSel === 'part-footer') { $kind = 'part'; $part = 'footer'; }
+            elseif (in_array($kindSel, ['popup', 'global'], true)) { $kind = $kindSel; }
+            $newId = PageForgeStore::createPage($title, '', $userId, $kind, $part);
             header('Location: builder.php?id=' . $newId);
             exit;
         }
@@ -43,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pages = PageForgeStore::listPages();
+$kindFilter = (string) ($_GET['kind'] ?? '');
+$pages = PageForgeStore::listPages($kindFilter !== '' ? $kindFilter : null);
 
 require $root . '/admin/partials/header.php';
 ?>
@@ -61,18 +68,34 @@ require $root . '/admin/partials/header.php';
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="create">
   <input type="text" name="title" placeholder="<?= htmlspecialchars(__('pageforge_new_title', 'New page title'), ENT_QUOTES, 'UTF-8') ?>" required>
+  <select name="kind">
+    <option value="page">Page</option>
+    <option value="part-header">Theme part — Header</option>
+    <option value="part-footer">Theme part — Footer</option>
+    <option value="popup">Popup</option>
+    <option value="global">Global widget</option>
+  </select>
   <button type="submit"><?= htmlspecialchars(__('pageforge_create', 'Create page'), ENT_QUOTES, 'UTF-8') ?></button>
 </form>
 
+<p class="pf-kind-filter">
+  <a href="index.php">All</a> ·
+  <a href="index.php?kind=page">Pages</a> ·
+  <a href="index.php?kind=part">Parts</a> ·
+  <a href="index.php?kind=popup">Popups</a> ·
+  <a href="index.php?kind=global">Globals</a>
+</p>
+
 <table class="table">
   <thead>
-    <tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr>
+    <tr><th>Title</th><th>Slug</th><th>Kind</th><th>Status</th><th>Updated</th><th></th></tr>
   </thead>
   <tbody>
   <?php foreach ($pages as $p): ?>
     <tr>
       <td><?= htmlspecialchars((string) $p['title'], ENT_QUOTES, 'UTF-8') ?></td>
       <td><code>/forge/<?= htmlspecialchars((string) $p['slug'], ENT_QUOTES, 'UTF-8') ?></code></td>
+      <td><?= htmlspecialchars((string) ($p['kind'] ?? 'page') . (!empty($p['part']) ? ' (' . (string) $p['part'] . ')' : ''), ENT_QUOTES, 'UTF-8') ?></td>
       <td><?= htmlspecialchars((string) $p['status'], ENT_QUOTES, 'UTF-8') ?></td>
       <td><?= htmlspecialchars((string) $p['updated_at'], ENT_QUOTES, 'UTF-8') ?></td>
       <td>
@@ -90,7 +113,7 @@ require $root . '/admin/partials/header.php';
     </tr>
   <?php endforeach; ?>
   <?php if ($pages === []): ?>
-    <tr><td colspan="5"><?= htmlspecialchars(__('pageforge_empty', 'No pages yet. Create your first page above.'), ENT_QUOTES, 'UTF-8') ?></td></tr>
+    <tr><td colspan="6"><?= htmlspecialchars(__('pageforge_empty', 'No pages yet. Create your first page above.'), ENT_QUOTES, 'UTF-8') ?></td></tr>
   <?php endif; ?>
   </tbody>
 </table>

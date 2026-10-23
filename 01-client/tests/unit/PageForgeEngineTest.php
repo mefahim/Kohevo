@@ -148,3 +148,42 @@ unit('pageforge phase3: tabs render beyond six panels', function (): void {
     assert_eq(8, substr_count($html, 'pf-tabs__panel--'), 'all 8 tab panels must render');
     assert_true(str_contains($html, 'pf-tabs__panel--7'), 'panel 8 (index 7) must exist for the 12-panel CSS');
 });
+
+unit('pageforge phase4: form widget embeds the Kohevo Forms route', function (): void {
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [
+            ['id' => 'f1', 'elType' => 'widget', 'widgetType' => 'form', 'settings' => ['form_slug' => 'contact-us', 'form_height' => 520]],
+            ['id' => 'f2', 'elType' => 'widget', 'widgetType' => 'form', 'settings' => []],
+        ],
+    ]);
+    $html = PageForgeRenderer::render($doc, 1);
+    assert_true(str_contains($html, '/forms/contact-us?embed=1'), 'form must embed via the Forms plugin embed route');
+    assert_true(str_contains($html, 'height:520px'), 'frame height must be honored');
+    assert_true(str_contains($html, 'No form selected.'), 'empty form must render the empty state');
+});
+
+unit('pageforge phase4: global expansion at compile time, placeholder without resolver', function (): void {
+    PageForgeRenderer::setGlobalResolver(null);
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [['id' => 'g', 'elType' => 'widget', 'widgetType' => 'global-widget', 'settings' => ['global_id' => 9]]],
+    ]);
+    $plain = PageForgeRenderer::compile($doc, 1);
+    assert_true(str_contains($plain['html'], 'pf-global-missing'), 'without a resolver the global renders its placeholder');
+    PageForgeRenderer::setGlobalResolver(static fn (int $id): ?array => $id === 9
+        ? ['elements' => [['id' => 'in', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => ['text' => 'FROM-GLOBAL', 'color' => '#00AA00']]]]
+        : null);
+    $expanded = PageForgeRenderer::compile($doc, 1);
+    assert_true(str_contains($expanded['html'], 'FROM-GLOBAL'), 'resolver content must expand into the page HTML');
+    assert_true(str_contains($expanded['css'], '#00aa00'), 'expanded element CSS must compile into the page CSS');
+    PageForgeRenderer::setGlobalResolver(null);
+});
+
+unit('pageforge phase4: button popup trigger replaces the link', function (): void {
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [['id' => 'b', 'elType' => 'widget', 'widgetType' => 'button',
+            'settings' => ['text' => 'Open', 'link_url' => 'https://example.com', 'popup_id' => 5]]],
+    ]);
+    $html = PageForgeRenderer::render($doc, 1);
+    assert_true(str_contains($html, 'data-pf-popup="5"'), 'popup button must carry the trigger attribute');
+    assert_true(!str_contains($html, 'example.com'), 'popup button must not keep the plain link');
+});

@@ -26,16 +26,40 @@ final class PageForgeStore
         return current_tenant_id();
     }
 
-    public static function createPage(string $title, string $slug, int $userId): int
+    private static bool $schemaReady = false;
+
+    /** Phase 4 columns (kind/part) for installs created before they existed. */
+    public static function ensureSchema(): void
     {
+        if (self::$schemaReady) {
+            return;
+        }
+        self::$schemaReady = true;
+        $cols = Database::rows("SHOW COLUMNS FROM pageforge_pages LIKE 'kind'");
+        if ($cols === []) {
+            Database::query("ALTER TABLE pageforge_pages ADD COLUMN kind ENUM('page','part','popup','global') NOT NULL DEFAULT 'page', ADD COLUMN part VARCHAR(20) NULL DEFAULT NULL");
+        }
+    }
+
+    public static function createPage(string $title, string $slug, int $userId, string $kind = 'page', ?string $part = null): int
+    {
+        self::ensureSchema();
+        if (!in_array($kind, ['page', 'part', 'popup', 'global'], true)) {
+            $kind = 'page';
+        }
+        if ($kind !== 'part') {
+            $part = null;
+        } elseif (!in_array($part, ['header', 'footer'], true)) {
+            $part = 'header';
+        }
         $pdo = self::pdo();
         $tid = self::tenantId();
         $slug = self::uniqueSlug($tid, $slug !== '' ? $slug : self::slugify($title));
         $stmt = $pdo->prepare(
-            "INSERT INTO pageforge_pages (tenant_id, uuid, title, slug, status, created_by, updated_by)
-             VALUES (?, ?, ?, ?, 'draft', ?, ?)"
+            "INSERT INTO pageforge_pages (tenant_id, uuid, title, slug, status, kind, part, created_by, updated_by)
+             VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)"
         );
-        $stmt->execute([$tid, self::uuid(), mb_substr($title, 0, 255), $slug, $userId, $userId]);
+        $stmt->execute([$tid, self::uuid(), mb_substr($title, 0, 255), $slug, $kind, $part, $userId, $userId]);
         $pageId = (int) $pdo->lastInsertId();
         self::saveDocument($pageId, ['elements' => []], $userId, 'manual');
         return $pageId;
@@ -60,13 +84,18 @@ final class PageForgeStore
     }
 
     /** @return list<array> */
-    public static function listPages(): array
+    public static function listPages(?string $kind = null): array
     {
-        return Database::rows(
-            'SELECT id, title, slug, status, updated_at, published_at FROM pageforge_pages
-             WHERE tenant_id = ? ORDER BY updated_at DESC',
-            [self::tenantId()]
-        );
+        self::ensureSchema();
+        $sql = 'SELECT id, title, slug, status, kind, part, updated_at, published_at FROM pageforge_pages
+             WHERE tenant_id = ?';
+        $params = [self::tenantId()];
+        if ($kind !== null && in_array($kind, ['page', 'part', 'popup', 'global'], true)) {
+            $sql .= ' AND kind = ?';
+            $params[] = $kind;
+        }
+        $sql .= ' ORDER BY updated_at DESC';
+        return Database::rows($sql, $params);
     }
 
     /** Save a (raw, untrusted) document as a new draft revision. Returns revision id. */
@@ -126,13 +155,27 @@ final class PageForgeStore
         return is_array($decoded) ? $decoded : ['elements' => []];
     }
 
+    /** Wire the renderer's global-widget resolver to this tenant's globals. */
+    public static function wireGlobalResolver(): void
+    {
+        PageForgeRenderer::setGlobalResolver(static function (int $globalId): ?array {
+            $g = self::getPage($globalId);
+            if ($g === null || ($g['kind'] ?? 'page') !== 'global') {
+                return null;
+            }
+            return self::getDocument($globalId);
+        });
+    }
+
     /** Compile the draft and mark it published. Returns the compiled pair. */
     public static function publish(int $pageId, int $userId): array
     {
+        self::ensureSchema();
         $page = self::getPage($pageId);
         if ($page === null) {
             throw new RuntimeException('pageforge: page not found for current tenant');
         }
+        self::wireGlobalResolver();
         $document = self::getDocument($pageId);
         $compiled = PageForgeRenderer::compile($document, $pageId);
         $revId = (int) ($page['active_draft_revision_id'] ?? 0);
@@ -148,12 +191,78 @@ final class PageForgeStore
              WHERE tenant_id = ? AND id = ?",
             [$revId, $userId, self::tenantId(), $pageId]
         );
+        if (($page['kind'] ?? 'page') === 'global') {
+            self::recompileDependents($pageId, $userId);
+        }
         return $compiled;
+    }
+
+    /**
+     * Recompile every published page whose draft references this global, so
+     * a global edit reaches live pages on the global's own publish — the
+     * referencing pages do not need a manual re-publish.
+     */
+    private static function recompileDependents(int $globalId, int $userId): void
+    {
+        $needle = '"global_id":' . $globalId;
+        $rows = Database::rows(
+            "SELECT p.id FROM pageforge_pages p
+             JOIN pageforge_revisions r ON r.id = p.active_draft_revision_id
+             WHERE p.tenant_id = ? AND p.id <> ? AND p.status = 'published' AND r.document_json LIKE ?",
+            [self::tenantId(), $globalId, '%' . $needle . '%']
+        );
+        foreach ($rows as $row) {
+            self::publish((int) $row['id'], $userId);
+        }
+    }
+
+    /** Published theme part ('header'|'footer') compilation, if one exists. */
+    public static function getPublishedPart(string $part): ?array
+    {
+        self::ensureSchema();
+        $rows = Database::rows(
+            "SELECT id FROM pageforge_pages WHERE tenant_id = ? AND kind = 'part' AND part = ? AND status = 'published'
+             ORDER BY published_at DESC LIMIT 1",
+            [self::tenantId(), $part]
+        );
+        if ($rows === []) {
+            return null;
+        }
+        $page = self::getPage((int) $rows[0]['id']);
+        $comp = Database::rows(
+            'SELECT html, css FROM pageforge_compilations WHERE tenant_id = ? AND page_id = ?',
+            [self::tenantId(), (int) $rows[0]['id']]
+        );
+        if ($page === null || $comp === []) {
+            return null;
+        }
+        return ['page' => $page, 'html' => (string) $comp[0]['html'], 'css' => (string) $comp[0]['css']];
+    }
+
+    /** All published popups of the tenant (rendered once, opened by trigger). */
+    public static function listPublishedPopups(): array
+    {
+        self::ensureSchema();
+        $out = [];
+        foreach (self::listPages('popup') as $p) {
+            if (($p['status'] ?? '') !== 'published') {
+                continue;
+            }
+            $comp = Database::rows(
+                'SELECT html, css FROM pageforge_compilations WHERE tenant_id = ? AND page_id = ?',
+                [self::tenantId(), (int) $p['id']]
+            );
+            if ($comp !== []) {
+                $out[] = ['page' => $p, 'html' => (string) $comp[0]['html'], 'css' => (string) $comp[0]['css']];
+            }
+        }
+        return $out;
     }
 
     /** Compiled output for the public runtime; null when not published. */
     public static function getPublished(string $slug): ?array
     {
+        self::ensureSchema();
         $page = self::getPageBySlug($slug);
         if ($page === null || ($page['status'] ?? '') !== 'published') {
             return null;
