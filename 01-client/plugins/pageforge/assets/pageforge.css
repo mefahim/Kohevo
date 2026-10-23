@@ -1,0 +1,34 @@
+/* PageForge base styles — structural defaults only.
+   Per-element styling is compiled per page (see PageForgeCss) and printed
+   inline with the page; this file carries no author-facing design choices. */
+
+.pf-page { box-sizing: border-box; }
+.pf-page *, .pf-page *::before, .pf-page *::after { box-sizing: inherit; }
+
+.pf-container { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+
+.pf-heading { margin: 0; line-height: 1.2; }
+.pf-heading a { color: inherit; text-decoration: none; }
+
+.pf-text { line-height: 1.6; }
+.pf-text > :first-child { margin-top: 0; }
+.pf-text > :last-child { margin-bottom: 0; }
+
+.pf-button {
+  display: inline-block;
+  padding: 12px 28px;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+  line-height: 1;
+}
+.pf-button--sm { padding: 8px 18px; font-size: 0.875rem; }
+.pf-button--lg { padding: 16px 36px; font-size: 1.125rem; }
+
+.pf-divider { border: 0; border-top: 1px solid #d1d5db; width: 100%; }
+
+.pf-spacer { display: block; width: 100%; }
+
+.pf-page img { max-width: 100%; height: auto; }
