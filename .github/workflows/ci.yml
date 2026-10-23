@@ -8,6 +8,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  # French completeness + version consistency run as their OWN job.
+  # They used to be an early step inside licensing-ci, where the legacy
+  # translation backlog (1,253 missing entries on main) failed the step
+  # and GitHub skipped every later step — provisioning and ALL test
+  # suites never executed. As a separate job the gate stays fully
+  # visible and keeps the run red until the backlog is fixed, while the
+  # test jobs run to completion and report real results.
+  i18n-version:
+    name: French pack & version consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, sodium, curl, json, openssl, dom, xml
+          coverage: none
+
+      - name: Check French pack completeness and version consistency
+        run: |
+          php scripts/check-i18n.php
+          V="$(tr -d '[:space:]' < VERSION)"
+          for f in 01-client/config.php 01-client/install.php 02-licensing/config.php 02-licensing/install.php; do
+            grep -q "'SLATE_VERSION', '$V'" "$f" || { echo "::error file=$f::SLATE_VERSION does not match VERSION ($V)"; exit 1; }
+          done
+          echo "Version $V is consistent across both apps."
+
   licensing-ci:
     name: Licensing & Client Suites (${{ matrix.db_label }})
     runs-on: ubuntu-latest
@@ -69,14 +100,10 @@ jobs:
           find 01-client 02-licensing -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
           echo "All PHP files in 01-client and 02-licensing parsed cleanly."
 
-      - name: Check French pack completeness and version consistency
-        run: |
-          php scripts/check-i18n.php
-          V="$(tr -d '[:space:]' < VERSION)"
-          for f in 01-client/config.php 01-client/install.php 02-licensing/config.php 02-licensing/install.php; do
-            grep -q "'SLATE_VERSION', '$V'" "$f" || { echo "::error file=$f::SLATE_VERSION does not match VERSION ($V)"; exit 1; }
-          done
-          echo "Version $V is consistent across both apps."
+      # The French pack + version consistency check lives in the
+      # dedicated i18n-version job above — deliberately NOT a step here,
+      # so its (currently failing, legacy-backlog) result can never skip
+      # provisioning or the test suites in this job again.
 
       - name: Provision test databases and .env files
         run: |
@@ -136,6 +163,7 @@ jobs:
             ('booking','Booking Plus','1.0.0','active','{"slug":"booking","name":"Booking Plus"}'),
             ('forms','Forms','1.0.0','active','{"slug":"forms","name":"Forms"}'),
             ('membership','Membership','1.0.0','active','{"slug":"membership","name":"Membership"}'),
+            ('restaurant','Restaurant','0.2.0','active','{"slug":"restaurant","name":"Restaurant"}'),
             ('stripe-payment','Stripe Payment Gateway','1.0.0','active','{"slug":"stripe-payment","name":"Stripe Payment Gateway"}')
             ON DUPLICATE KEY UPDATE status=VALUES(status), manifest_json=VALUES(manifest_json);
           SQL
@@ -145,6 +173,28 @@ jobs:
           (cd 01-client && php tests/fixtures/booking-schema.php)
           mysql -h 127.0.0.1 -uroot -proot root_slate_t9 < 01-client/plugins/membership/install.sql
           mysql -h 127.0.0.1 -uroot -proot root_slate_t9 < 01-client/plugins/stripe-payment/install.sql
+          mysql -h 127.0.0.1 -uroot -proot root_slate_t9 < 01-client/plugins/restaurant/install.sql
+          (cd 01-client && php tests/fixtures/restaurant-schema.php)
+
+      # The restaurant suites run as their own step, BEFORE the smoke &
+      # licensing step, on purpose: run-phase10-licensing.php (inside
+      # that step) currently fails on two pre-existing module-registry
+      # assertions, and a failed step skips everything after it — in
+      # run #2 of PR #9 that starved these suites again even after the
+      # i18n gate was moved out. Their own earlier step means a
+      # licensing-runner failure can never prevent them from executing.
+      # Nothing is suppressed: if this step fails the job fails here,
+      # and the Phase 10 failure stays fully visible in its own step.
+      - name: Run restaurant settlement and resolution suites
+        run: |
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementRaceTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantTenantIsolationTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantMigrationTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantWebhookPollRaceTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantFreshInstallSchemaTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementResolutionTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantPaymentsPageTest.php'; exit(unit_summary());"
 
       - name: Run 01-client smoke & licensing suites
         run: |

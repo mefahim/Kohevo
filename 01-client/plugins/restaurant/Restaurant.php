@@ -33,6 +33,18 @@ class Restaurant extends Plugin {
             }
         }
 
+        // REST-001: the settlement gate is deliberately independent of the
+        // version stamp above. schemaIsCurrent() only proves four tables
+        // exist — it cannot see settlement columns or the unique index — so
+        // a settlement step that failed or was blocked by legacy duplicate
+        // stripe_pi_id values would otherwise be stamped "done" and never
+        // retried. This probe-driven retry runs until the index truly exists;
+        // a blocked install keeps its payments flowing (the settlement claim
+        // needs no index) while the state stays visible in settings.
+        if (!$this->settlementSchemaReady()) {
+            $this->ensureSettlementSchema();
+        }
+
         Hook::addFilter('admin_nav_items',         [$this, 'addAdminNav']);
         Hook::addFilter('admin_dashboard_widgets', [$this, 'addAdminDashboardWidget']);
 
@@ -74,6 +86,9 @@ class Restaurant extends Plugin {
         $items[] = ['slug' => 'restaurant-orders',     'label' => __('restaurant_orders', 'Orders'),
                     'href' => $this->url('admin/index.php'),
                     'icon' => 'list', 'perm' => 'restaurant.view', 'order' => 701, 'group' => 'restaurant'];
+        $items[] = ['slug' => 'restaurant-payments',   'label' => __('restaurant_flagged_payments', 'Flagged payments'),
+                    'href' => $this->url('admin/payments.php'),
+                    'icon' => 'alert-triangle', 'perm' => 'restaurant.manage_orders', 'order' => 703, 'group' => 'restaurant'];
         $items[] = ['slug' => 'restaurant-online',     'label' => __('restaurant_online', 'Online orders'),
                     'href' => $this->url('admin/online.php'),
                     'icon' => 'shopping-bag', 'perm' => 'restaurant.view', 'order' => 702, 'group' => 'restaurant'];
@@ -123,6 +138,12 @@ class Restaurant extends Plugin {
                    FROM restaurant_orders o
                    LEFT JOIN restaurant_tables t ON t.id = o.table_id
                   WHERE o.tenant_id = ? ORDER BY o.id DESC LIMIT 5", [$tid]);
+            // REST-002: flagged-payment count for the dashboard badge. The
+            // count uses the same predicate as RestaurantAPI::flaggedPayments
+            // so the badge and the page can never disagree. Only managers
+            // (restaurant.manage_orders) are shown the alert.
+            $flaggedCount = (Auth::can('restaurant.manage_orders') || Auth::isSuperAdmin())
+                ? count(RestaurantAPI::flaggedPayments($tid)) : 0;
         } catch (\Throwable $e) {
             return $widgets;
         }
@@ -148,6 +169,12 @@ class Restaurant extends Plugin {
                     <div class="dwidget-kpi-v"><?= $covers ?></div>
                 </div>
             </div>
+            <?php if (!empty($flaggedCount)): ?>
+                <div class="alert alert-error" role="status" style="margin:.5rem 1rem">
+                    <?= (int)$flaggedCount ?> <?= __('restaurant_flagged_payments_alert', 'flagged payment(s) need review — a card payment did not settle.') ?>
+                    <a href="<?= e($this->url('admin/payments.php')) ?>"><?= __('restaurant_review_flagged', 'Review flagged payments') ?> →</a>
+                </div>
+            <?php endif; ?>
             <?php if ($latest): ?>
                 <div class="dlist">
                     <?php foreach ($latest as $o):
@@ -207,6 +234,99 @@ class Restaurant extends Plugin {
         $this->ensureColumn('restaurant_orders', 'requested_time', "VARCHAR(40) NULL");
         $this->ensureColumn('restaurant_payments', 'stripe_session_id', "VARCHAR(120) NULL");
         $this->ensureIndex('restaurant_orders', 'public_token', '(`public_token`)');
+
+        // REST-001 — settlement hardening schema (additive only; the status
+        // ENUM is intentionally untouched so older code runs on this schema).
+        $this->ensureSettlementSchema();
+    }
+
+    /**
+     * REST-001 settlement schema: claim + reconciliation columns on
+     * restaurant_payments, then the (tenant_id, stripe_pi_id) unique index —
+     * but ONLY when a duplicate scan proves it can be created. Legacy
+     * duplicates are never deleted or rewritten to make this pass: the step
+     * records 'blocked' in the restaurant.settlement_index setting, raises
+     * one admin notification, and leaves every row exactly as it was. A
+     * human resolves the duplicates (see bin/restaurant-settlement-
+     * preflight.php for the read-only report); the next boot then retries.
+     * Idempotent and safe to call on every boot.
+     */
+    private function ensureSettlementSchema(): void {
+        $this->ensureColumn('restaurant_payments', 'stripe_session_id', "VARCHAR(120) NULL");
+        $this->ensureColumn('restaurant_payments', 'currency', "CHAR(3) NULL");
+        $this->ensureColumn('restaurant_payments', 'settlement_claim_token', "CHAR(32) NULL");
+        $this->ensureColumn('restaurant_payments', 'settlement_claimed_at', "DATETIME NULL");
+        $this->ensureColumn('restaurant_payments', 'settlement_issue', "VARCHAR(40) NULL");
+        // REST-002 (D3): figures a manager actually accepted on a manual
+        // settle. The original amount_cents/tip_cents/currency are never
+        // rewritten; these nullable columns stay NULL for automatic
+        // settlements, where the row figures ARE the settled figures.
+        $this->ensureColumn('restaurant_payments', 'settled_amount_cents', "INT NULL");
+        $this->ensureColumn('restaurant_payments', 'settled_currency', "CHAR(3) NULL");
+
+        try {
+            $indexExists = (int) Database::value(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'restaurant_payments'
+                    AND INDEX_NAME = 'uniq_tenant_pi'") > 0;
+            if ($indexExists) {
+                if ((string) $this->setting('settlement_index', '') !== 'present') {
+                    $this->setSetting('settlement_index', 'present');
+                }
+                return;
+            }
+
+            $scan = RestaurantAPI::settlementDuplicateScan();
+            if (!empty($scan['blocked'])) {
+                if ((string) $this->setting('settlement_index', '') !== 'blocked') {
+                    $this->setSetting('settlement_index', 'blocked');
+                    slate_log('Restaurant settlement index blocked by duplicate stripe_pi_id values; '
+                        . 'run bin/restaurant-settlement-preflight.php for the list.', 'error');
+                    if (class_exists('Notifications')) {
+                        Notifications::add('Restaurant payments need review', [
+                            'body' => 'Duplicate Stripe payment references are blocking a settlement '
+                                    . 'safety update. No payments were changed. Ask your developer to '
+                                    . 'run the restaurant settlement preflight report.',
+                            'icon' => 'alert-triangle',
+                        ]);
+                    }
+                }
+                return;
+            }
+
+            Database::query(
+                "ALTER TABLE `restaurant_payments` ADD UNIQUE KEY `uniq_tenant_pi` (`tenant_id`, `stripe_pi_id`)");
+            $this->setSetting('settlement_index', 'present');
+        } catch (\Throwable $e) {
+            // Not stamped anywhere as done — settlementSchemaReady() stays
+            // false, so the next boot retries. The claim-based settler does
+            // not depend on this index, so payments keep working meanwhile.
+            slate_log('Restaurant ensureSettlementSchema failed: ' . $e->getMessage(), 'error');
+        }
+    }
+
+    /**
+     * True only when the settlement columns AND the unique index actually
+     * exist — probed from INFORMATION_SCHEMA, never inferred from the
+     * version stamp. This is the probe schemaIsCurrent() cannot provide.
+     */
+    public function settlementSchemaReady(): bool {
+        try {
+            $cols = (int) Database::value(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'restaurant_payments'
+                    AND COLUMN_NAME IN ('stripe_session_id','currency','settlement_claim_token',
+                                        'settlement_claimed_at','settlement_issue',
+                                        'settled_amount_cents','settled_currency')");
+            if ($cols < 7) return false;
+            $idx = (int) Database::value(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'restaurant_payments'
+                    AND INDEX_NAME = 'uniq_tenant_pi'");
+            return $idx > 0;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function schemaIsCurrent(): bool {

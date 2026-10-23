@@ -1356,4 +1356,7 @@ return array (
     'plugin_uninstall_type_prompt' => 'Cette action supprime définitivement toutes les données de « %1$s ». Pour confirmer, tapez : %2$s',
     'plugin_uninstall_type_mismatch' => 'Le texte saisi ne correspond pas. Rien n’a été supprimé.',
     'plugin_confirm_mismatch' => 'La confirmation ne correspond pas. Rien n’a été supprimé.',
+    'restaurant_flagged_payments' => 'Paiements signalés',
+    'restaurant_flagged_payments_alert' => 'paiement(s) signalé(s) à examiner — un paiement par carte n’a pas été réglé.',
+    'restaurant_review_flagged' => 'Examiner les paiements signalés',
 );

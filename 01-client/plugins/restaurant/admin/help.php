@@ -62,6 +62,7 @@ require SLATE_ROOT . '/admin/partials/header.php';
             <a href="#start">Getting started</a>
             <a href="#pos">Using the POS</a>
             <a href="#pay">Payments &amp; card readers</a>
+            <a href="#flagged">Flagged payments</a>
             <a href="#online">Online ordering</a>
             <a href="#settings">Settings</a>
             <a href="#perms">Roles &amp; permissions</a>
@@ -117,6 +118,27 @@ require SLATE_ROOT . '/admin/partials/header.php';
         <?php if (!RestaurantAPI::terminalAvailable()): ?>
             <div class="note">Stripe Terminal isn't available yet — configure the <b>stripe-payment</b> plugin to enable card payments. Cash works regardless.</div>
         <?php endif; ?>
+    </div>
+
+    <div class="card" id="flagged">
+        <h2>Flagged payments</h2>
+        <p class="text-sm">Very rarely, Stripe captures a card payment but reports a <b>different amount or currency</b> than the check total — a partial capture, a reader hiccup, a tip handled differently. When that happens the payment is <b>flagged</b> instead of settled: the order is <em>not</em> marked paid, an alert appears on the dashboard, and the payment waits on the <a href="<?= e($url('payments.php')) ?>">Flagged payments</a> page for a manager to resolve. Nothing about the original charge is ever changed or deleted — the original figures and the mismatch record stay in the audit trail permanently.</p>
+        <h3>What you see</h3>
+        <ul>
+            <li><b>Expected</b> — the check figure (amount + tip) the payment was created for.</li>
+            <li><b>Actual</b> — what Stripe says was captured, fetched live when you open the page <em>and again when you act</em>, so you never decide on stale numbers.</li>
+            <li><b>Reason</b> — amount mismatch, currency mismatch, or the figure could not be verified.</li>
+        </ul>
+        <h3>Your two options</h3>
+        <ol>
+            <li><b>Accept &amp; settle</b> — only when you understand the difference (for example the guest added items at the counter). The payment settles at the <b>actual</b> Stripe figure and the order is marked paid at that amount. You must tick the confirmation box and write a reason — both are stored in the audit trail with your name.</li>
+            <li><b>Refund full amount</b> — returns the whole captured amount to the guest through Stripe. The order stays <b>unpaid</b> and is <em>not</em> voided automatically: void it or re-ring it at the POS as your house policy requires. Partial refunds are not offered here.</li>
+        </ol>
+        <p class="text-sm">Only roles with <b>restaurant.manage_orders</b> can open this page or resolve a payment. Resolutions are one at a time — there is no bulk action, on purpose.</p>
+        <div class="note">
+            <b>"Unresolved — reconciliation required" after a refund?</b> This means Stripe reported the refund as issued but the local record could not be finished — it is <b>not</b> a success and <b>not</b> a failure. <b>Do not refund again</b>, here or in the Stripe dashboard: the guest may already have their money back, and a second refund would pay them twice. First check the charge in Stripe (or ask your developer to check the Charges ledger). If the refund is there, come back to the Flagged payments page and retry the refund — the retry notices the existing refund and only updates the record, without charging Stripe again.
+        </div>
+        <p class="text-sm text-muted">If a flagged payment has no recorded charge and Stripe cannot verify the captured amount, the page cannot refund it — refund from the Stripe dashboard instead and leave the payment flagged until then.</p>
     </div>
 
     <div class="card" id="online">
