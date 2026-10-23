@@ -559,17 +559,19 @@ unit('phase7 integration: AI + MCP through the real gateway (real MySQL, tenants
                 $refused(['page_id' => $S->home['id'], 'expected_revision_id' => $rev(), 'operations' => [['op' => 'remove_block', 'payload' => ['block_id' => 'blk_0000000000000000000000ff']]]], 'invalid node id');
                 assert_eq($before, sbp7_count('SELECT COUNT(*) FROM studiobuilder_revisions WHERE tenant_id = ?', [SBP7_A]), 'no rejected operation wrote a revision');
 
-                // Executable markup in an ordinary text prop is refused by the canonical validator (unsafe_content);
-                // template-looking or instruction-looking text is just text, stored verbatim and escaped on render.
-                assert_true(in_array('unsafe_content', $refused($insert(['type' => 'core.heading', 'props' => ['text' => '<script>alert(1)</script>', 'level' => 'h2']]), 'script in text'), true));
-                assert_true(in_array('unsafe_content', $refused($insert(['type' => 'core.heading', 'props' => ['text' => '<?php echo 1; ?>', 'level' => 'h2']]), 'php in text'), true));
-                assert_true(in_array('unsafe_content', $refused($insert(['type' => 'core.heading', 'props' => ['text' => "'; DROP TABLE studiobuilder_pages; --", 'level' => 'h2']]), 'sql in text'), true));
-                assert_true(in_array('unsafe_content', $refused($insert(['type' => 'core.heading', 'props' => ['text' => 'Hello ${process.env.SECRET} {{ $user }} <%= 1 %>', 'level' => 'h2']]), 'template expressions'), true));
+                // Executable markup in a heading prop is refused by the canonical validator. Since Batch D
+                // the heading text prop is inline_html-typed (canvas inline formatting), so the refusal code
+                // is unsafe_inline_html; template-looking or instruction-looking text is just text, stored
+                // verbatim — escaped on render except intended inline formatting such as <b>.
+                assert_true(in_array('unsafe_inline_html', $refused($insert(['type' => 'core.heading', 'props' => ['text' => '<script>alert(1)</script>', 'level' => 'h2']]), 'script in text'), true));
+                assert_true(in_array('unsafe_inline_html', $refused($insert(['type' => 'core.heading', 'props' => ['text' => '<?php echo 1; ?>', 'level' => 'h2']]), 'php in text'), true));
+                assert_true(in_array('unsafe_inline_html', $refused($insert(['type' => 'core.heading', 'props' => ['text' => "'; DROP TABLE studiobuilder_pages; --", 'level' => 'h2']]), 'sql in text'), true));
+                assert_true(in_array('unsafe_inline_html', $refused($insert(['type' => 'core.heading', 'props' => ['text' => 'Hello ${process.env.SECRET} {{ $user }} <%= 1 %>', 'level' => 'h2']]), 'template expressions'), true));
                 $r = sbp7_ok(sbp7_call($a, 'studio_apply_operations', $insert(['type' => 'core.heading', 'props' => ['text' => SBP7_INJECTION . ' & {{ 7*7 }} <b>', 'level' => 'h2']]) + ['include_document' => true]), 'injection-looking text');
                 $heading = $r['document']['sections'][1]['blocks'][0];
                 assert_eq(SBP7_INJECTION . ' & {{ 7*7 }} <b>', $heading['props']['text'], 'stored verbatim as data');
                 $html = sbp7_ok(sbp7_call($a, 'studio_preview', ['page_id' => $S->home['id'], 'include_html' => true]), 'preview html')['html'];
-                assert_true(str_contains($html, '&amp; {{ 7*7 }} &lt;b&gt;') && !str_contains($html, ' <b>'), 'escaped on render');
+                assert_true(str_contains($html, '&amp; {{ 7*7 }} <b></b>') && !str_contains($html, '&lt;b&gt;'), 'text stays data (& escaped, template braces literal); intended <b> renders as inline formatting');
                 // Rich text: executable markup is refused or stripped — never persisted, never rendered.
                 $hostile = '<p>ok</p><script>alert(2)</script><iframe src="https://evil.example"></iframe><style>body{display:none}</style><p onclick="x()">t</p>';
                 $rich = sbp7_call($a, 'studio_apply_operations', $insert(['type' => 'core.rich_text', 'props' => ['content' => $hostile]]) + ['include_document' => true]);
