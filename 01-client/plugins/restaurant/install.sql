@@ -208,6 +208,8 @@ CREATE TABLE IF NOT EXISTS `restaurant_payments` (
     `settlement_claim_token` CHAR(32) NULL,
     `settlement_claimed_at`  DATETIME NULL,
     `settlement_issue`       VARCHAR(40) NULL,
+    `settled_amount_cents`   INT NULL,
+    `settled_currency`       CHAR(3) NULL,
     `reader_id`       INT UNSIGNED NULL,
     `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),

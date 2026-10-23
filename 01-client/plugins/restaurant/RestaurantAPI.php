@@ -560,6 +560,317 @@ class RestaurantAPI {
         }
     }
 
+    // ── REST-002 — flagged-payment resolution ──────────────────────────
+    // REST-001 detects and parks mismatches; these entry points are the
+    // human resolution path. Invariants:
+    //  * The payment row's tenant_id rules — everything runs inside
+    //    with_tenant(payment.tenant_id), exactly like the settler.
+    //  * Resolution takes the SAME lease claim as settlement, and every
+    //    completion is token-checked, so a resolution can never interleave
+    //    with an in-flight settlement, a webhook, or a second resolution.
+    //  * Original figures (amount_cents / tip_cents / currency) and the
+    //    original restaurant.settlement_mismatch audit row are NEVER
+    //    rewritten. Accepted actuals live in settled_amount_cents /
+    //    settled_currency (D3) and in the resolution audit payload.
+    //  * A resolution is only reported successful after the authoritative
+    //    states (Stripe for refunds, the committed local transaction for
+    //    both paths) support it.
+
+    /** Flagged payments for one tenant, newest first, with order basics. */
+    public static function flaggedPayments(int $tenantId): array {
+        return Database::rows(
+            "SELECT p.*, o.order_no AS order_no, o.status AS order_status, o.total_cents AS order_total_cents
+               FROM restaurant_payments p
+               LEFT JOIN restaurant_orders o
+                 ON o.id = p.order_id AND o.tenant_id = p.tenant_id
+              WHERE p.tenant_id = ? AND p.settlement_issue IS NOT NULL
+              ORDER BY p.id DESC", [$tenantId]);
+    }
+
+    /**
+     * Fresh Stripe actuals for a payment — fetched at ACTION time, never
+     * the figures stored when the mismatch was flagged (they may be stale:
+     * a partial capture, a later adjustment). Returns
+     * ['amount_cents' => ?int, 'currency' => string, 'charge_id' => ?string]
+     * or null when Stripe cannot be reached / the PI is unknown.
+     */
+    public static function fetchStripeActuals(array $payment): ?array {
+        $pi = (string)($payment['stripe_pi_id'] ?? '');
+        if ($pi === '' || !class_exists('StripePaymentAPI')) return null;
+        try {
+            $intent = StripePaymentAPI::getPaymentIntent($pi);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!$intent) return null;
+        $amount = $intent['amount_received'] ?? ($intent['amount'] ?? null);
+        return [
+            'amount_cents' => $amount !== null ? (int)$amount : null,
+            'currency'     => strtoupper(trim((string)($intent['currency'] ?? ''))),
+            'charge_id'    => !empty($intent['latest_charge']) ? (string)$intent['latest_charge'] : null,
+        ];
+    }
+
+    /**
+     * Shared resolution validation. Returns an error state array, or null
+     * when the action may proceed. The permission rule (D2) is enforced by
+     * the calling admin page (Auth::requirePerm('restaurant.manage_orders'))
+     * AND re-checked here whenever a live Auth session exists, so no
+     * caller can skip it by invoking the API directly over HTTP. CLI/test
+     * contexts have no Auth session (userId 0) and pass — they still must
+     * supply a real actor id and reason, which land in the audit payload.
+     */
+    private static function resolutionGuard(int $actorId, string $reason): ?array {
+        if ($actorId <= 0) return ['state' => 'invalid', 'error' => 'A resolution must name the acting user.'];
+        if (mb_strlen(trim($reason)) < 3) return ['state' => 'invalid', 'error' => 'A reason of at least 3 characters is required.'];
+        if (class_exists('Auth') && (int)\Auth::userId() > 0
+            && !\Auth::can('restaurant.manage_orders') && !\Auth::isSuperAdmin()) {
+            return ['state' => 'forbidden', 'error' => 'restaurant.manage_orders permission required.'];
+        }
+        return null;
+    }
+
+    /** Expected figures for audit payloads — the same basis the settler reconciles on. */
+    private static function expectedFigures(array $payment): array {
+        $cur = strtoupper(trim((string)($payment['currency'] ?? '')));
+        return [
+            'expected_cents'    => (int)$payment['amount_cents'] + (int)$payment['tip_cents'],
+            'expected_currency' => $cur !== '' ? $cur : self::currency(),
+        ];
+    }
+
+    /** The charges-ledger row for a payment, resolved INSIDE its tenant. */
+    private static function resolveChargeRow(array $payment): ?array {
+        if (!class_exists('StripePaymentAPI')) return null;
+        \StripePaymentAPI::ensureChargesSchema();
+        $tid = (int)$payment['tenant_id'];
+        $pi  = (string)($payment['stripe_pi_id'] ?? '');
+        if ($pi !== '') {
+            $row = Database::row(
+                "SELECT * FROM stripepayment_charges WHERE tenant_id = ? AND stripe_payment_intent_id = ?",
+                [$tid, $pi]);
+            if ($row) return $row;
+        }
+        $sess = (string)($payment['stripe_session_id'] ?? '');
+        if ($sess !== '') {
+            return Database::row(
+                "SELECT * FROM stripepayment_charges WHERE tenant_id = ? AND stripe_session_id = ?",
+                [$tid, $sess]);
+        }
+        return null;
+    }
+
+    /**
+     * Token-checked resolution completion shared by both paths: flip the
+     * payment to its resolved status, clear the flag + claim, and re-sync
+     * the order — in ONE guarded transaction, only if this caller still
+     * owns the claim. Returns false when the claim was lost (the caller
+     * must then report honestly rather than claim success).
+     */
+    private static function completeFlaggedResolution(array $payment, string $token, string $newStatus, array $extra = []): bool {
+        return self::withTransaction(function () use ($payment, $token, $newStatus, $extra) {
+            $fields = $extra + [
+                'status'                 => $newStatus,
+                'settlement_issue'       => null,
+                'settlement_claim_token' => null,
+                'settlement_claimed_at'  => null,
+            ];
+            $n = Database::update('restaurant_payments', $fields,
+                'id = ? AND status = ? AND settlement_claim_token = ?',
+                [(int)$payment['id'], 'pending', $token]);
+            if ($n !== 1) return false;
+            self::syncOrderPayment((int)$payment['order_id']);
+            return true;
+        });
+    }
+
+    /**
+     * Manager acceptance of a flagged payment at the Stripe-reported
+     * figures ($actualCents/$actualCurrency MUST be freshly fetched at
+     * action time — see fetchStripeActuals). The payment settles at the
+     * ACTUAL amount: the charge ledger records the actual, the order's
+     * paid_cents counts the actual (via settled_amount_cents), and the
+     * distinct restaurant.settlement_manual_accept audit preserves the
+     * expected-vs-actual story with the authorising actor and reason.
+     * Never throws; returns a state array like the settler's.
+     */
+    public static function acceptFlaggedPayment(int $paymentId, ?int $actualCents, string $actualCurrency, ?string $chargeId, int $actorId, string $reason): array {
+        if ($err = self::resolutionGuard($actorId, $reason)) return $err;
+        $actualCurrency = strtoupper(trim($actualCurrency));
+        if ($actualCents === null || $actualCents <= 0) {
+            return ['state' => 'invalid', 'error' => 'Stripe actual amount is missing or not positive — re-check Stripe before accepting.'];
+        }
+        if (strlen($actualCurrency) !== 3) {
+            return ['state' => 'invalid', 'error' => 'Stripe actual currency is missing — re-check Stripe before accepting.'];
+        }
+        $payment = Database::row("SELECT * FROM restaurant_payments WHERE id = ?", [$paymentId]);
+        if (!$payment) return ['state' => 'not_found'];
+        if ($payment['status'] !== 'pending' || empty($payment['settlement_issue'])) {
+            return ['state' => 'not_flagged'];
+        }
+        return with_tenant((int)$payment['tenant_id'], function () use ($payment, $actualCents, $actualCurrency, $chargeId, $actorId, $reason) {
+            $fresh = Database::row("SELECT * FROM restaurant_payments WHERE id = ? AND tenant_id = ?",
+                [(int)$payment['id'], (int)$payment['tenant_id']]);
+            if (!$fresh || $fresh['status'] !== 'pending' || empty($fresh['settlement_issue'])) {
+                return ['state' => 'not_flagged'];
+            }
+            $token = self::acquireSettlementClaim($fresh);
+            if ($token === null) return ['state' => 'claimed'];
+            try {
+                $chargeRowId = null;
+                if (class_exists('StripePaymentAPI') && !empty($fresh['stripe_pi_id'])) {
+                    $chargeRowId = StripePaymentAPI::recordCharge(
+                        self::chargePayload($fresh, $actualCents, $actualCurrency));
+                }
+                $done = self::completeFlaggedResolution($fresh, $token, 'paid', [
+                    'stripe_charge_id'     => $chargeId ?: ($fresh['stripe_charge_id'] ?: null),
+                    'settled_amount_cents' => $actualCents,
+                    'settled_currency'     => $actualCurrency,
+                ]);
+                if (!$done) return ['state' => 'lost'];
+                $exp = self::expectedFigures($fresh);
+                AuditLog::record('restaurant.settlement_manual_accept', (string)$fresh['id'], [
+                    'order_id'          => (int)$fresh['order_id'],
+                    'issue'             => (string)$fresh['settlement_issue'],
+                    'expected_cents'    => $exp['expected_cents'],
+                    'expected_currency' => $exp['expected_currency'],
+                    'actual_cents'      => $actualCents,
+                    'actual_currency'   => $actualCurrency,
+                    'actor_id'          => $actorId,
+                    'reason'            => trim($reason),
+                    'charge'            => $chargeRowId,
+                ]);
+                return ['state' => 'paid', 'charge_row' => $chargeRowId];
+            } catch (\Throwable $e) {
+                self::releaseSettlementClaim((int)$fresh['id'], $token);
+                slate_log('Restaurant manual accept failed for payment ' . (int)$fresh['id'] . ': ' . $e->getMessage(), 'error');
+                return ['state' => 'error', 'error' => $e->getMessage()];
+            }
+        });
+    }
+
+    /**
+     * Full-remaining refund of a flagged payment through the charges
+     * ledger (D4). Safety order:
+     *  1. Claim the payment (lease) so nothing else can act on it.
+     *  2. Inspect the ledger BEFORE any Stripe call: a charge already
+     *     fully refunded (an earlier attempt whose local completion
+     *     failed, or a dashboard refund) completes locally with NO new
+     *     Stripe call — a retry can never double-refund.
+     *  3. If no ledger row exists, create it from the freshly fetched
+     *     actuals (the mismatch path never recorded one); without
+     *     verifiable actuals the refund refuses — Stripe-dashboard
+     *     fallback is the documented operator path.
+     *  4. Audit restaurant.settlement_refund_started BEFORE the Stripe
+     *     request, so a crash leaves a discoverable trail.
+     *  5. StripePaymentAPI::refundCharge() performs the refund and the
+     *     ledger update; only then does the local completion run,
+     *     token-checked. If that completion loses the claim, the state
+     *     'refund_unrecorded' + a dedicated audit say exactly what
+     *     happened — success is never claimed early, and step 2 makes
+     *     the retry converge.
+     * The order is left unpaid (D5) — staff void or re-ring at the POS.
+     */
+    public static function refundFlaggedPayment(int $paymentId, ?int $actualCents, string $actualCurrency, int $actorId, string $reason): array {
+        if ($err = self::resolutionGuard($actorId, $reason)) return $err;
+        $payment = Database::row("SELECT * FROM restaurant_payments WHERE id = ?", [$paymentId]);
+        if (!$payment) return ['state' => 'not_found'];
+        if ($payment['status'] !== 'pending' || empty($payment['settlement_issue'])) {
+            return ['state' => 'not_flagged'];
+        }
+        if (!class_exists('StripePaymentAPI')) {
+            return ['state' => 'error', 'error' => 'The stripe-payment plugin is not available.'];
+        }
+        return with_tenant((int)$payment['tenant_id'], function () use ($payment, $actualCents, $actualCurrency, $actorId, $reason) {
+            $fresh = Database::row("SELECT * FROM restaurant_payments WHERE id = ? AND tenant_id = ?",
+                [(int)$payment['id'], (int)$payment['tenant_id']]);
+            if (!$fresh || $fresh['status'] !== 'pending' || empty($fresh['settlement_issue'])) {
+                return ['state' => 'not_flagged'];
+            }
+            $token = self::acquireSettlementClaim($fresh);
+            if ($token === null) return ['state' => 'claimed'];
+            try {
+                $chargeRow = self::resolveChargeRow($fresh);
+                $healed = false;
+                if ($chargeRow && (int)$chargeRow['amount_cents'] > 0
+                    && (int)$chargeRow['refunded_cents'] >= (int)$chargeRow['amount_cents']) {
+                    $healed = true; // money already fully refunded — converge locally, no Stripe call
+                }
+                $refundId = null; $refundedCents = $healed ? (int)$chargeRow['refunded_cents'] : 0;
+                if (!$healed) {
+                    if (!$chargeRow) {
+                        $actualCurrency = strtoupper(trim($actualCurrency));
+                        if ($actualCents === null || $actualCents <= 0 || strlen($actualCurrency) !== 3) {
+                            self::releaseSettlementClaim((int)$fresh['id'], $token);
+                            return ['state' => 'no_charge',
+                                    'error' => 'No charge is recorded for this payment and the captured amount could not be verified — refund from the Stripe dashboard instead.'];
+                        }
+                        $newId = StripePaymentAPI::recordCharge(
+                            self::chargePayload($fresh, $actualCents, $actualCurrency));
+                        if (!$newId) {
+                            self::releaseSettlementClaim((int)$fresh['id'], $token);
+                            return ['state' => 'error', 'error' => 'Could not record the charge for refund.'];
+                        }
+                        $chargeRow = self::resolveChargeRow($fresh);
+                        if (!$chargeRow) {
+                            self::releaseSettlementClaim((int)$fresh['id'], $token);
+                            return ['state' => 'error', 'error' => 'Charge record could not be reloaded for refund.'];
+                        }
+                    }
+                    $exp = self::expectedFigures($fresh);
+                    AuditLog::record('restaurant.settlement_refund_started', (string)$fresh['id'], [
+                        'order_id'          => (int)$fresh['order_id'],
+                        'issue'             => (string)$fresh['settlement_issue'],
+                        'expected_cents'    => $exp['expected_cents'],
+                        'expected_currency' => $exp['expected_currency'],
+                        'charge_row'        => (int)$chargeRow['id'],
+                        'actor_id'          => $actorId,
+                        'reason'            => trim($reason),
+                    ]);
+                    $res = StripePaymentAPI::refundCharge((int)$chargeRow['id']);
+                    if (empty($res['ok'])) {
+                        self::releaseSettlementClaim((int)$fresh['id'], $token);
+                        return ['state' => 'refund_failed', 'error' => (string)($res['error'] ?? 'Stripe refund failed.')];
+                    }
+                    $refundId = (string)($res['refund_id'] ?? '');
+                    $refundedCents = (int)($res['refunded_cents'] ?? 0);
+                }
+                $done = self::completeFlaggedResolution($fresh, $token, 'refunded');
+                if (!$done) {
+                    if (!$healed) {
+                        AuditLog::record('restaurant.settlement_refund_unrecorded', (string)$fresh['id'], [
+                            'order_id' => (int)$fresh['order_id'],
+                            'refund_id' => $refundId,
+                            'refunded_cents' => $refundedCents,
+                            'actor_id' => $actorId,
+                            'reason' => trim($reason),
+                        ]);
+                        slate_log('Restaurant refund succeeded at Stripe but local completion lost the claim for payment '
+                            . (int)$fresh['id'] . ' (refund ' . $refundId . '); a retry will converge.', 'error');
+                    }
+                    return ['state' => 'refund_unrecorded', 'refund_id' => $refundId];
+                }
+                $exp = self::expectedFigures($fresh);
+                AuditLog::record('restaurant.settlement_refunded', (string)$fresh['id'], [
+                    'order_id'          => (int)$fresh['order_id'],
+                    'issue'             => (string)$fresh['settlement_issue'],
+                    'expected_cents'    => $exp['expected_cents'],
+                    'expected_currency' => $exp['expected_currency'],
+                    'refund_id'         => $refundId,
+                    'refunded_cents'    => $refundedCents,
+                    'healed'            => $healed,
+                    'actor_id'          => $actorId,
+                    'reason'            => trim($reason),
+                ]);
+                return ['state' => 'refunded', 'refund_id' => $refundId, 'healed' => $healed];
+            } catch (\Throwable $e) {
+                self::releaseSettlementClaim((int)$payment['id'], $token);
+                slate_log('Restaurant refund resolution failed for payment ' . (int)$payment['id'] . ': ' . $e->getMessage(), 'error');
+                return ['state' => 'error', 'error' => $e->getMessage()];
+            }
+        });
+    }
+
     /**
      * Settle a restaurant payment when its Stripe PaymentIntent succeeds.
      * Fired from the stripe_webhook_event action. The endpoint runs pinned
@@ -640,8 +951,12 @@ class RestaurantAPI {
         self::recalcOrder($orderId);
 
         $order = Database::row("SELECT * FROM restaurant_orders WHERE id = ? AND tenant_id = ?", [$orderId, $tid]);
+        // REST-002: a manually accepted payment (settled_amount_cents set)
+        // counts at the figure the manager actually accepted — that is the
+        // money received — never at the rung figure it overrode. Automatic
+        // settlements leave the column NULL and count exactly as before.
         $paid  = (int) Database::value(
-            "SELECT COALESCE(SUM(amount_cents + tip_cents),0) FROM restaurant_payments
+            "SELECT COALESCE(SUM(COALESCE(settled_amount_cents, amount_cents + tip_cents)),0) FROM restaurant_payments
               WHERE order_id = ? AND tenant_id = ? AND status = 'paid'", [$orderId, $tid]);
 
         $fields = ['paid_cents' => $paid];

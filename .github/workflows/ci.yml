@@ -172,6 +172,8 @@ jobs:
           php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantMigrationTest.php'; exit(unit_summary());"
           php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantWebhookPollRaceTest.php'; exit(unit_summary());"
           php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantFreshInstallSchemaTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementResolutionTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantPaymentsPageTest.php'; exit(unit_summary());"
 
       - name: Run Kohevo Studio (studio-builder) unit & integration suites
         run: |
