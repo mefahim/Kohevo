@@ -176,6 +176,26 @@ jobs:
           mysql -h 127.0.0.1 -uroot -proot root_slate_t9 < 01-client/plugins/restaurant/install.sql
           (cd 01-client && php tests/fixtures/restaurant-schema.php)
 
+      # The restaurant suites run as their own step, BEFORE the smoke &
+      # licensing step, on purpose: run-phase10-licensing.php (inside
+      # that step) currently fails on two pre-existing module-registry
+      # assertions, and a failed step skips everything after it — in
+      # run #2 of PR #9 that starved these suites again even after the
+      # i18n gate was moved out. Their own earlier step means a
+      # licensing-runner failure can never prevent them from executing.
+      # Nothing is suppressed: if this step fails the job fails here,
+      # and the Phase 10 failure stays fully visible in its own step.
+      - name: Run restaurant settlement and resolution suites
+        run: |
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementRaceTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantTenantIsolationTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantMigrationTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantWebhookPollRaceTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantFreshInstallSchemaTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementResolutionTest.php'; exit(unit_summary());"
+          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantPaymentsPageTest.php'; exit(unit_summary());"
+
       - name: Run 01-client smoke & licensing suites
         run: |
           php 01-client/tests/smoke.php
@@ -193,14 +213,6 @@ jobs:
           php 01-client/tests/run-phase10-licensing.php
           php 01-client/tests/run-phase11-security.php
           php 01-client/tests/run-phase13-legacy.php
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementRaceTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantTenantIsolationTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantMigrationTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantWebhookPollRaceTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantFreshInstallSchemaTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantSettlementResolutionTest.php'; exit(unit_summary());"
-          php -r "require '01-client/config.php'; require '01-client/tests/guard.php'; slate_require_test_database(); require '01-client/tests/unit/harness.php'; require '01-client/tests/integration/RestaurantPaymentsPageTest.php'; exit(unit_summary());"
 
       - name: Run Kohevo Studio (studio-builder) unit & integration suites
         run: |
