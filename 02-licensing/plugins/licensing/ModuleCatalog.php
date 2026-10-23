@@ -153,6 +153,17 @@ final class ModuleCatalog
             'sort_order'        => 39,
         ],
         [
+            'module_key'        => 'pageforge',
+            'display_name'      => 'PageForge',
+            'description'       => 'Visual page builder (Elementor-inspired, original code).',
+            'status'            => 'available',
+            'commercial'        => true,
+            'v1_available'      => true,
+            'plugin_identifier' => 'pageforge',
+            'dependencies'      => [],
+            'sort_order'        => 41,
+        ],
+        [
             'module_key'        => 'editor',
             'display_name'      => 'Editor',
             'description'       => 'Visual page editor (Future / Not in V1).',

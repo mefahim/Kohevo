@@ -147,6 +147,16 @@ final class CommercialModuleRegistry
             'sort_order'              => 38,
         ],
         [
+            'module_key'              => 'pageforge',
+            'display_name'            => 'PageForge',
+            'description'             => 'Visual page builder (Elementor-inspired, original code)',
+            'plugin_slug'             => 'pageforge',
+            'v1_available'            => true,
+            'commercial'              => true,
+            'required_infrastructure' => [],
+            'sort_order'              => 41,
+        ],
+        [
             'module_key'              => 'editor',
             'display_name'            => 'Editor',
             'description'             => 'Visual page and layout editor (Future release)',
