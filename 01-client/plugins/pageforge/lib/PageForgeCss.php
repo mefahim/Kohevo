@@ -46,6 +46,16 @@ final class PageForgeCss
         ];
     }
 
+    /** Style keys that apply to a widget definition (its own list, or the default subset). */
+    public static function effectiveStyleKeys(array $def): array
+    {
+        $keys = $def['style_controls'] ?? self::defaultStyleKeys();
+        foreach (($def['controls_are_style'] ?? []) as $cssKey) {
+            if (!in_array($cssKey, $keys, true)) $keys[] = $cssKey;
+        }
+        return $keys;
+    }
+
     private static function defaultStyleKeys(): array
     {
         return ['color', 'background_color', 'font_size', 'font_weight', 'line_height', 'text_align',

@@ -66,3 +66,57 @@ unit('pageforge: invalid colors and out-of-range numbers never reach CSS', funct
     assert_true(!str_contains($css, 'display:none'), 'CSS injection through a color must be impossible');
     assert_true(!str_contains($css, '99999'), 'font size must be clamped by the sanitizer');
 });
+
+unit('pageforge phase2: repeater settings are sanitized per item schema', function (): void {
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [[
+            'id' => 'il', 'elType' => 'widget', 'widgetType' => 'icon-list',
+            'settings' => ['items' => [
+                ['icon_name' => 'check', 'text' => 'One', 'link_url' => 'https://example.com'],
+                ['icon_name' => 'not-an-icon', 'text' => 'Two', 'link_url' => 'javascript:alert(1)', 'extra' => 'dropped'],
+                'junk',
+            ]],
+        ]],
+    ]);
+    $items = $doc['elements'][0]['settings']['items'];
+    assert_eq(2, count($items), 'non-array repeater rows must be dropped');
+    assert_eq('star', $items[1]['icon_name'], 'invalid icon must fall back to the control default');
+    assert_eq('', $items[1]['link_url'], 'unsafe repeater URL must be emptied');
+    assert_true(!isset($items[1]['extra']), 'undeclared repeater fields must be dropped');
+});
+
+unit('pageforge phase2: every registered widget renders without error on empty settings', function (): void {
+    foreach (array_keys(PageForgeWidgets::all()) as $type) {
+        if ($type === 'container') continue;
+        $doc = PageForgeRenderer::normalizeDocument([
+            'elements' => [['id' => 'w', 'elType' => 'widget', 'widgetType' => $type, 'settings' => []]],
+        ]);
+        $html = PageForgeRenderer::render($doc, 1);
+        assert_true(is_string($html), $type . ' must render a string');
+    }
+});
+
+unit('pageforge phase2: html widget strips active content but keeps markup', function (): void {
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [[
+            'id' => 'h', 'elType' => 'widget', 'widgetType' => 'html',
+            'settings' => ['content' => '<p onclick="x()">ok</p><script>alert(1)</script><iframe src="https://evil.example"></iframe>'],
+        ]],
+    ]);
+    $html = PageForgeRenderer::render($doc, 1);
+    assert_true(str_contains($html, '<p>ok</p>'), 'legitimate markup must survive');
+    assert_true(!str_contains($html, 'script'), 'script must be stripped');
+    assert_true(!str_contains($html, 'iframe'), 'iframe must be stripped');
+    assert_true(!str_contains($html, 'onclick'), 'event handlers must be stripped');
+});
+
+unit('pageforge phase2: video widget only embeds canonical youtube/vimeo/file sources', function (): void {
+    $mk = static fn (array $s): string => PageForgeRenderer::render(PageForgeRenderer::normalizeDocument([
+        'elements' => [['id' => 'v', 'elType' => 'widget', 'widgetType' => 'video', 'settings' => $s]],
+    ]), 1);
+    assert_true(str_contains($mk(['source' => 'youtube', 'url' => 'https://youtu.be/dQw4w9WgXcQ']), 'youtube-nocookie.com/embed/dQw4w9WgXcQ'));
+    assert_true(str_contains($mk(['source' => 'vimeo', 'url' => 'https://vimeo.com/123456789']), 'player.vimeo.com/video/123456789'));
+    assert_eq('', trim(strip_tags($mk(['source' => 'youtube', 'url' => 'https://example.com/watch?v=dQw4w9WgXcQ']))), 'foreign host must not embed');
+    assert_true(str_contains($mk(['source' => 'file', 'url' => 'https://cdn.example.com/a.mp4']), '<video'));
+    assert_true(!str_contains($mk(['source' => 'file', 'url' => 'https://cdn.example.com/a.exe']), '<video'), 'non-video file must not render');
+});
