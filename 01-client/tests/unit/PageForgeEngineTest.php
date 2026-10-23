@@ -120,3 +120,31 @@ unit('pageforge phase2: video widget only embeds canonical youtube/vimeo/file so
     assert_true(str_contains($mk(['source' => 'file', 'url' => 'https://cdn.example.com/a.mp4']), '<video'));
     assert_true(!str_contains($mk(['source' => 'file', 'url' => 'https://cdn.example.com/a.exe']), '<video'), 'non-video file must not render');
 });
+
+unit('pageforge phase3: extended style controls compile through value maps', function (): void {
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [[
+            'id' => 'h', 'elType' => 'widget', 'widgetType' => 'heading',
+            'settings' => ['text' => 'T', 'font_family' => 'serif', 'box_shadow' => 'md', 'opacity' => 0.5,
+                'letter_spacing' => -1, 'text_transform' => 'uppercase', 'border_style' => 'solid', 'border_width' => 2, 'border_color' => '#FF0000'],
+        ]],
+    ]);
+    $css = PageForgeCss::compile($doc['elements'], 5);
+    assert_true(str_contains($css, 'font-family: Georgia, "Times New Roman", serif;'), 'font_family must compile through its value map');
+    assert_true(str_contains($css, 'box-shadow: 0 4px 12px rgba(0,0,0,0.12);'), 'box_shadow preset must compile through its value map');
+    assert_true(str_contains($css, 'opacity: 0.5;'), 'opacity must compile unitless');
+    assert_true(str_contains($css, 'letter-spacing: -1px;'), 'negative letter-spacing must compile');
+    assert_true(str_contains($css, 'text-transform: uppercase;'));
+    assert_true(str_contains($css, 'border-width: 2px;') && str_contains($css, 'border-style: solid;') && str_contains($css, 'border-color: #ff0000;'), 'border trio must compile');
+});
+
+unit('pageforge phase3: tabs render beyond six panels', function (): void {
+    $items = [];
+    for ($i = 1; $i <= 8; $i++) $items[] = ['title' => 'T' . $i, 'content' => 'C' . $i];
+    $doc = PageForgeRenderer::normalizeDocument([
+        'elements' => [['id' => 'tb', 'elType' => 'widget', 'widgetType' => 'tabs', 'settings' => ['items' => $items]]],
+    ]);
+    $html = PageForgeRenderer::render($doc, 1);
+    assert_eq(8, substr_count($html, 'pf-tabs__panel--'), 'all 8 tab panels must render');
+    assert_true(str_contains($html, 'pf-tabs__panel--7'), 'panel 8 (index 7) must exist for the 12-panel CSS');
+});

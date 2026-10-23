@@ -43,6 +43,25 @@ final class PageForgeCss
             'justify_content'  => ['type' => 'select', 'options' => ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'], 'css' => ['justify-content']],
             'align_items'      => ['type' => 'select', 'options' => ['stretch', 'flex-start', 'center', 'flex-end', 'baseline'], 'css' => ['align-items']],
             'height'           => ['type' => 'number', 'min' => 0, 'max' => 2000, 'css' => ['height'], 'unit' => 'px', 'responsive' => true],
+            'letter_spacing'   => ['type' => 'number', 'min' => -5, 'max' => 20, 'css' => ['letter-spacing'], 'unit' => 'px', 'responsive' => true],
+            'text_transform'   => ['type' => 'select', 'options' => ['none', 'uppercase', 'lowercase', 'capitalize'], 'css' => ['text-transform']],
+            'font_family'      => ['type' => 'select', 'options' => ['inherit', 'system', 'serif', 'mono'], 'css' => ['font-family'], 'value_map' => [
+                'inherit' => 'inherit',
+                'system' => '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+                'serif' => 'Georgia, "Times New Roman", serif',
+                'mono' => 'ui-monospace, Menlo, Consolas, monospace',
+            ]],
+            'border_width'     => ['type' => 'number', 'min' => 0, 'max' => 50, 'css' => ['border-width'], 'unit' => 'px'],
+            'border_style'     => ['type' => 'select', 'options' => ['none', 'solid', 'dashed', 'dotted', 'double'], 'css' => ['border-style']],
+            'border_color'     => ['type' => 'color', 'css' => ['border-color']],
+            'box_shadow'       => ['type' => 'select', 'options' => ['none', 'sm', 'md', 'lg', 'xl'], 'css' => ['box-shadow'], 'value_map' => [
+                'none' => 'none',
+                'sm' => '0 1px 2px rgba(0,0,0,0.08)',
+                'md' => '0 4px 12px rgba(0,0,0,0.12)',
+                'lg' => '0 10px 30px rgba(0,0,0,0.16)',
+                'xl' => '0 20px 50px rgba(0,0,0,0.22)',
+            ]],
+            'opacity'          => ['type' => 'number', 'min' => 0, 'max' => 1, 'css' => ['opacity'], 'unit' => ''],
         ];
     }
 
@@ -58,8 +77,9 @@ final class PageForgeCss
 
     private static function defaultStyleKeys(): array
     {
-        return ['color', 'background_color', 'font_size', 'font_weight', 'line_height', 'text_align',
-            'margin', 'padding', 'border_radius'];
+        return ['color', 'background_color', 'font_size', 'font_weight', 'line_height', 'letter_spacing',
+            'text_transform', 'font_family', 'text_align', 'margin', 'padding',
+            'border_width', 'border_style', 'border_color', 'border_radius', 'box_shadow', 'opacity'];
     }
 
     /**
@@ -168,7 +188,8 @@ final class PageForgeCss
                 }
                 return implode(' ', $parts);
             case 'select':
-                return in_array($value, $control['options'] ?? [], true) ? (string) $value : null;
+                if (!in_array($value, $control['options'] ?? [], true)) return null;
+                return (string) (($control['value_map'] ?? [])[$value] ?? $value);
             default:
                 return null;
         }

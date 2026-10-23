@@ -45,7 +45,8 @@ final class PageForgeWidgets
                 'html_tag' => ['type' => 'select', 'options' => ['div', 'section', 'article', 'main', 'header', 'footer'], 'default' => 'div'],
             ],
             'style_controls' => ['flex_direction', 'justify_content', 'align_items', 'gap', 'width', 'min_height',
-                'background_color', 'padding', 'margin', 'border_radius'],
+                'background_color', 'padding', 'margin', 'border_radius', 'border_width', 'border_style',
+                'border_color', 'box_shadow', 'opacity'],
             'render' => static function (array $s, string $children, array $el): string {
                 $tag = (string) ($s['html_tag'] ?? 'div');
                 if (!in_array($tag, ['div', 'section', 'article', 'main', 'header', 'footer'], true)) $tag = 'div';
