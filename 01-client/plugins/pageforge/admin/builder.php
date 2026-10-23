@@ -57,6 +57,44 @@ $document = PageForgeStore::getDocument($pageId);
 $preview = PageForgeRenderer::compile($document, $pageId);
 $widgets = array_keys(PageForgeWidgets::all());
 
+// Canvas editor boot manifest (Phase 2): widget schemas without render
+// callables, plus the shared style-control schemas and this page's state.
+$pfManifest = [];
+foreach (PageForgeWidgets::all() as $type => $def) {
+    $controls = [];
+    foreach (($def['controls'] ?? []) as $key => $c) {
+        $controls[$key] = array_intersect_key($c, array_flip(['type', 'options', 'default', 'min', 'max', 'item_schema', 'allow_html']));
+        if (isset($controls[$key]['item_schema'])) {
+            foreach ($controls[$key]['item_schema'] as $f => $fc) {
+                $controls[$key]['item_schema'][$f] = array_intersect_key($fc, array_flip(['type', 'options', 'default', 'min', 'max']));
+            }
+        }
+    }
+    $pfManifest[] = [
+        'type' => $type,
+        'label' => $def['label'] ?? $type,
+        'icon' => $def['icon'] ?? '',
+        'is_container' => !empty($def['is_container']),
+        'controls' => $controls,
+        'style_keys' => PageForgeCss::effectiveStyleKeys($def),
+    ];
+}
+$pfStyleControls = [];
+foreach (PageForgeCss::styleControls() as $key => $c) {
+    $pfStyleControls[$key] = array_intersect_key($c, array_flip(['type', 'options', 'min', 'max', 'responsive']));
+}
+$pfBoot = [
+    'pageId' => $pageId,
+    'pageTitle' => (string) $page['title'],
+    'document' => $document,
+    'widgets' => $pfManifest,
+    'styleControls' => $pfStyleControls,
+    'csrf' => ['name' => '_csrf', 'value' => csrf_token()],
+    'saveUrl' => 'builder.php?id=' . $pageId,
+    'previewUrl' => 'api.php',
+];
+$pfEditorVer = (int) (@filemtime(dirname(__DIR__) . '/assets/editor/editor.js') ?: 0);
+
 require $root . '/admin/partials/header.php';
 ?>
 <div class="page-head">
@@ -70,7 +108,14 @@ require $root . '/admin/partials/header.php';
   </div>
 <?php endif; ?>
 
-<p>Widgets in this build: <?= htmlspecialchars(implode(', ', $widgets), ENT_QUOTES, 'UTF-8') ?></p>
+<link rel="stylesheet" href="<?= htmlspecialchars(plugin_url('pageforge', 'assets/pageforge.css'), ENT_QUOTES, 'UTF-8') ?>">
+<link rel="stylesheet" href="<?= htmlspecialchars(plugin_url('pageforge', 'assets/editor/editor.css'), ENT_QUOTES, 'UTF-8') ?>">
+<div id="pageforge-editor"></div>
+<script>window.PAGEFORGE_BOOT = <?= json_encode($pfBoot, JSON_UNESCAPED_SLASHES) ?>;</script>
+<script type="module" src="<?= htmlspecialchars(plugin_url('pageforge', 'assets/editor/editor.js'), ENT_QUOTES, 'UTF-8') ?>?v=<?= $pfEditorVer ?>"></script>
+
+<details>
+<summary>Fallback editor (document JSON) — widgets in this build: <?= htmlspecialchars(implode(', ', $widgets), ENT_QUOTES, 'UTF-8') ?></summary>
 
 <form method="post">
   <?= csrf_field() ?>
@@ -87,4 +132,5 @@ require $root . '/admin/partials/header.php';
 <div style="border:1px solid #ddd; padding:16px; background:#fff;">
 <?= $preview['html'] ?>
 </div>
+</details>
 <?php require $root . '/admin/partials/footer.php'; ?>
