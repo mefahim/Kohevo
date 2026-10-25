@@ -39,11 +39,23 @@
 .pf-image-box { margin: 0; }
 .pf-image-box img { max-width: 100%; height: auto; display: block; }
 .pf-image-box a { color: inherit; text-decoration: none; }
+.pf-image-box__text, .pf-icon-box__text { min-width: 0; }
 .pf-icon-box__icon { display: inline-flex; font-size: 40px; line-height: 1; }
+/* Batch B: icon hover animations (rotate rides on a separate wrapper, so
+ * these transforms never fight an inline rotate). */
+.pf-icon-box__icon--hover-grow, .pf-icon-box__icon--hover-float, .pf-icon-box__icon--hover-spin { transition: transform .3s ease; }
+.pf-icon-box__icon--hover-grow:hover { transform: scale(1.15); }
+.pf-icon-box__icon--hover-float:hover { transform: translateY(-6px); }
+.pf-icon-box__icon--hover-pulse:hover { animation: pf-icon-pulse 1s ease-in-out infinite; }
+.pf-icon-box__icon--hover-spin:hover { animation: pf-icon-spin 1s linear infinite; }
+@keyframes pf-icon-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes pf-icon-spin { to { transform: rotate(360deg); } }
 .pf-icon-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .pf-icon-list li, .pf-icon-list a { display: flex; align-items: center; gap: 10px; }
 .pf-icon-list svg { flex: none; }
 .pf-icon-list a { color: inherit; text-decoration: none; }
+/* Batch C: dedicated icon hook (only rendered when an icon feature is used). */
+.pf-icon-list__icon { display: inline-flex; flex: none; line-height: 1; }
 .pf-video video { width: 100%; height: auto; display: block; }
 .pf-video--embed { position: relative; aspect-ratio: 16 / 9; }
 .pf-video--embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
@@ -51,9 +63,43 @@
 .pf-gallery figure { margin: 0; }
 .pf-gallery img { width: 100%; height: auto; display: block; }
 .pf-gallery figcaption { font-size: .875em; opacity: .75; margin-top: 6px; }
-.pf-carousel { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
+.pf-carousel__viewport { overflow-x: auto; padding-bottom: 8px; }
+.pf-carousel__track { display: flex; gap: 16px; scroll-snap-type: x mandatory; }
 .pf-carousel__slide { flex: 0 0 80%; scroll-snap-align: start; margin: 0; }
 .pf-carousel__slide img { width: 100%; height: auto; display: block; }
+.pf-carousel__slide figcaption { font-size: .875em; opacity: .75; margin-top: 6px; }
+/* Batch D, JS mode: transform sliding replaces native scroll. */
+.pf-carousel--js .pf-carousel__viewport { overflow: hidden; }
+.pf-carousel--js .pf-carousel__track { scroll-snap-type: none; }
+.pf-carousel__nav { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.pf-carousel__arrow { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd; background: #fff; color: #333; font-size: 18px; line-height: 1; cursor: pointer; }
+.pf-carousel__dots { display: flex; gap: 7px; }
+.pf-carousel__dot { width: 9px; height: 9px; border-radius: 50%; border: 0; background: #ddd; padding: 0; cursor: pointer; }
+.pf-carousel__dot.is-active { background: #454299; width: 26px; border-radius: 6px; }
+/* Batch D lightbox overlay. */
+.pf-lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0, 0, 0, .88); display: flex; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
+.pf-lightbox img { max-width: 86vw; max-height: 86vh; object-fit: contain; border-radius: 8px; }
+.pf-lightbox figcaption { color: #e8e8ee; text-align: center; margin-top: 12px; }
+.pf-lightbox__btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .35); background: transparent; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; flex: none; }
+.pf-lightbox__close { position: absolute; top: 18px; right: 18px; }
+/* Batch F: soundcloud placeholder + read-more toggle + text-path + bio. */
+.pf-soundcloud iframe { display: block; border: 0; }
+.pf-soundcloud--empty { padding: 24px; text-align: center; color: #888; border: 1px dashed #ccc; border-radius: 10px; }
+.pf-readmore__details summary { cursor: pointer; color: #454299; font-weight: 600; }
+.pf-readmore__less { display: none; }
+.pf-readmore__details[open] .pf-readmore__less { display: inline; }
+.pf-readmore__details[open] .pf-readmore__more { display: none; }
+.pf-textpath__svg { width: 100%; height: auto; display: block; }
+.pf-textpath text { fill: currentColor; }
+.pf-bio__avatar { display: block; object-fit: cover; }
+.pf-bio__avatar--initial { display: grid; place-items: center; background: linear-gradient(135deg, #8f89d8, #454299); color: #fff; font-weight: 700; }
+.pf-bio__name { font-size: 18px; font-weight: 700; }
+.pf-bio__bio { color: #6f716b; font-size: 14px; }
+.pf-bio__bio p { margin: 4px 0 0; }
+.pf-bio__social { display: flex; gap: 8px; margin-top: 12px; }
+.pf-bio__social a { width: 30px; height: 30px; border-radius: 50%; background: #11130f; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; text-decoration: none; }
+.pf-bio__links { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+.pf-bio__links a { display: block; background: #454299; color: #fff; text-align: center; padding: 11px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; }
 .pf-tabs > input { position: absolute; opacity: 0; pointer-events: none; }
 .pf-tabs__labels { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid #e5e2da; }
 .pf-tabs__labels label { padding: 10px 16px; cursor: pointer; font-weight: 600; }
@@ -116,3 +162,47 @@
 .pf-popup__box { position: relative; background: #fff; color: #191922; border-radius: 14px; max-width: 640px; width: 100%; max-height: 88vh; overflow: auto; padding: 28px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
 .pf-popup__close { position: absolute; top: 8px; right: 12px; border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: inherit; }
 .pf-global-missing { min-height: 8px; }
+
+/* Phase 5: shop widgets, loop, mega-menu */
+.pf-grid { display: grid; gap: 20px; grid-template-columns: repeat(var(--pf-cols, 3), 1fr); }
+@media (max-width: 1024px) { .pf-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .pf-grid { grid-template-columns: 1fr; } }
+.pf-product-card { position: relative; border: 1px solid #e5e5ee; border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+.pf-product-card__img { width: 100%; height: 200px; object-fit: cover; display: block; }
+.pf-product-card__badge { position: absolute; top: 10px; left: 10px; background: #454299; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 999px; }
+.pf-product-card__body { padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.pf-product-card__title { margin: 0; font-size: 17px; }
+.pf-product-card__title a { color: inherit; text-decoration: none; }
+.pf-product-card__cat { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .65; }
+.pf-product-card__excerpt { margin: 0; font-size: 14px; opacity: .8; }
+.pf-product-card__price { margin: 0; font-weight: 700; }
+.pf-product-card__price del { font-weight: 400; opacity: .55; }
+.pf-product-card__btn, .pf-product-view__btn { display: inline-block; margin-top: auto; background: #454299; color: #fff; padding: 9px 16px; border-radius: 8px; text-decoration: none; font-size: 14px; }
+.pf-product-view { display: flex; gap: 24px; flex-wrap: wrap; }
+.pf-product-view__img { max-width: 420px; width: 100%; border-radius: 12px; display: block; }
+.pf-product-view__body { flex: 1 1 260px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.pf-product-view__title { margin: 0; }
+.pf-product-view__price { margin: 0; font-size: 20px; font-weight: 700; }
+.pf-product-view__price del { font-weight: 400; opacity: .55; font-size: 16px; }
+.pf-product-view__desc { margin: 0; opacity: .85; }
+.pf-loop__item { min-width: 0; }
+.pf-megamenu__list { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.pf-megamenu__item { position: relative; }
+.pf-megamenu__link { text-decoration: none; color: inherit; font-weight: 600; }
+.pf-megamenu__panel { position: absolute; top: 100%; left: 0; min-width: 300px; max-width: 90vw; background: #fff; color: #191922; border: 1px solid #e5e5ee; border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,.14); padding: 18px; display: none; z-index: 60; }
+.pf-megamenu__item:hover .pf-megamenu__panel, .pf-megamenu__item:focus-within .pf-megamenu__panel { display: block; }
+.pf-megamenu__panel--empty { min-height: 40px; }
+
+/* PageForge Phase 8 — entrance animations (CSS-only, no JS). */
+@keyframes pf-fade { from { opacity: 0; } }
+@keyframes pf-slide-up { from { opacity: 0; transform: translateY(24px); } }
+@keyframes pf-slide-down { from { opacity: 0; transform: translateY(-24px); } }
+@keyframes pf-zoom { from { opacity: 0; transform: scale(.92); } }
+
+/* Phase 10 — popup positions + entrance animations (keyframes ship in the Phase 8 block) */
+.pf-popup.pf-pos-bottom-right { align-items: flex-end; justify-content: flex-end; }
+.pf-popup.pf-pos-bottom-left { align-items: flex-end; justify-content: flex-start; }
+.pf-popup.pf-pos-top { align-items: flex-start; justify-content: center; }
+.pf-popup.pf-anim-fade .pf-popup__box { animation: pf-fade .35s ease both; }
+.pf-popup.pf-anim-slide-up .pf-popup__box { animation: pf-slide-up .35s ease both; }
+.pf-popup.pf-anim-zoom .pf-popup__box { animation: pf-zoom .3s ease both; }

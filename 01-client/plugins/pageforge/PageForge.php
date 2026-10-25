@@ -41,6 +41,12 @@ class PageForge extends Plugin
             'href' => $this->url('admin/index.php'),
             'icon' => 'layout',
         ];
+        $items[] = [
+            'slug' => 'pageforge-site-settings',
+            'label' => __('pageforge_site_settings', 'PageForge Site Settings'),
+            'href' => $this->url('admin/site-settings.php'),
+            'icon' => 'sliders',
+        ];
         return $items;
     }
 

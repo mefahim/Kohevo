@@ -1,0 +1,116 @@
+/* PageForge admin layer (organization Tier 1/2) — the plugin's admin
+   pages inside the platform's light admin shell, one design language:
+   Kohevo violet accent #454299, card surfaces, the same spacing and
+   component shapes as the approved Tier 1/2 mockups. The editor keeps
+   its own dark system (assets/editor/editor.css). Everything here is
+   scoped so platform chrome is never restyled: shared components use
+   pf- classes; platform classes (.table) and form controls are only
+   styled under the .pf-admin page wrapper. */
+
+.pf-admin { font-size: 14px; color: #1d1d24; }
+.pf-admin * { box-sizing: border-box; }
+
+/* ── Page head + sub-nav (admin/_ui.php) ──────────────────── */
+.pf-head { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; }
+.pf-mark { width: 36px; height: 36px; border-radius: 9px; background: #454299; color: #fff;
+  display: grid; place-items: center; font-weight: 800; font-size: 16px; flex: 0 0 auto; }
+.pf-head h1 { font-size: 20px; font-weight: 700; letter-spacing: -.2px; margin: 0; }
+.pf-head p { color: #6d6d78; font-size: 12.5px; margin: 1px 0 0; }
+
+.pf-subnav { display: flex; gap: 2px; background: #fff; border: 1px solid #dde0e5;
+  border-radius: 11px; padding: 4px; margin-bottom: 18px; align-items: center; }
+.pf-subnav a { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px;
+  border-radius: 8px; color: #55555f; text-decoration: none; font-size: 13px; font-weight: 600; }
+.pf-subnav a:hover { background: #efeef8; }
+.pf-subnav a.on { background: #454299; color: #fff; }
+.pf-subnav a.on:hover { background: #454299; }
+.pf-subnav .pf-sp { flex: 1; }
+.pf-subnav a.pf-cta { color: #454299; border: 1px dashed #b9b5e3; }
+.pf-subnav a.pf-cta:hover { background: #efeef8; }
+
+/* ── Flash (shared renderer) ──────────────────────────────── */
+.pf-flash { display: flex; gap: 9px; align-items: center; border-radius: 10px;
+  padding: 10px 14px; font-size: 13px; margin-bottom: 16px; border: 1px solid; }
+.pf-flash--success { background: #e9f9ef; border-color: #bfe8cc; color: #14532d; }
+.pf-flash--info { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+.pf-flash--error { background: #fdf0f0; border-color: #f3c2c2; color: #7f1d1d; }
+.pf-flash a { color: inherit; }
+
+/* ── Cards & forms ────────────────────────────────────────── */
+.pf-card { background: #fff; border: 1px solid #dde0e5; border-radius: 12px;
+  padding: 18px; margin-bottom: 16px; }
+.pf-card > h2:first-child { margin-top: 0; }
+.pf-card h2 { font-size: 14.5px; font-weight: 700; margin: 0 0 12px; }
+.pf-card p { margin: 0 0 10px; }
+
+.pf-admin input[type="text"], .pf-admin input[type="number"], .pf-admin input[type="file"],
+.pf-admin select, .pf-admin textarea {
+  border: 1px solid #d4d7dd; border-radius: 8px; padding: 0 11px; font-size: 13.5px;
+  font-family: inherit; background: #fff; color: #1d1d24; }
+.pf-admin input[type="text"], .pf-admin input[type="number"], .pf-admin select { height: 36px; }
+.pf-admin textarea { padding: 9px 11px; }
+.pf-admin label { font-size: 13.5px; }
+
+.pf-admin button { height: 36px; padding: 0 15px; border-radius: 9px; border: 1px solid #d4d7dd;
+  background: #fff; color: #1d1d24; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.pf-admin button:hover { background: #f4f4f8; }
+.pf-admin button.pf-primary { background: #454299; border-color: #454299; color: #fff; }
+.pf-admin button.pf-primary:hover { background: #514ca8; }
+
+.pf-wide { width: 100%; }
+.pf-doc { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+
+/* ── Index: checklist, create form, kind filter, table ────── */
+.pf-checklist { background: #fff; border: 1px solid #dde0e5; border-radius: 12px;
+  padding: 18px; margin-bottom: 16px; }
+.pf-checklist h2 { font-size: 14.5px; font-weight: 700; margin: 0 0 8px; }
+.pf-checklist ul { list-style: none; margin: 0 0 10px; padding: 0; }
+.pf-checklist li { padding: 8px 2px; border-bottom: 1px solid #eef0f3; font-size: 13.5px; }
+.pf-checklist li:last-child { border-bottom: 0; }
+.pf-checklist li s { color: #9a9aa7; }
+.pf-checklist form { display: inline; }
+
+.pf-create { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  background: #fff; border: 1px solid #dde0e5; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+.pf-create input[type="text"] { flex: 1; min-width: 200px; }
+
+.pf-kind-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.pf-kind-filter a { padding: 5px 12px; border-radius: 20px; border: 1px solid #d4d7dd;
+  background: #fff; color: #55555f; font-size: 12.5px; font-weight: 600; text-decoration: none; }
+.pf-kind-filter a.on { background: #17171d; border-color: #17171d; color: #fff; }
+
+.pf-admin table.table { width: 100%; border-collapse: collapse; font-size: 13.5px;
+  background: #fff; border: 1px solid #dde0e5; border-radius: 12px; overflow: hidden; }
+.pf-card table.table { border: 0; border-radius: 0; }
+.pf-admin table.table th { text-align: left; font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .5px; color: #9a9aa7; padding: 10px 12px; border-bottom: 1px solid #e3e6ea; }
+.pf-admin table.table td { padding: 11px 12px; border-bottom: 1px solid #eef0f3; vertical-align: middle; }
+.pf-admin table.table tr:last-child td { border-bottom: 0; }
+.pf-admin table.table td form { display: inline; margin: 0; }
+
+.pf-pill { font-size: 10.5px; font-weight: 700; letter-spacing: .4px; padding: 3px 8px;
+  border-radius: 20px; text-transform: uppercase; white-space: nowrap; }
+.pf-pill--pub { background: #12351f; color: #4ade80; }
+.pf-pill--draft { background: #f7ead0; color: #8a6414; }
+
+/* ── Setup wizard ─────────────────────────────────────────── */
+.pf-steps { display: flex; align-items: center; margin-bottom: 18px; }
+.pf-step { display: flex; align-items: center; flex: 1; }
+.pf-step:last-child { flex: 0 0 auto; }
+.pf-step-n { width: 26px; height: 26px; border-radius: 50%; background: #fff;
+  border: 2px solid #d4d7dd; display: grid; place-items: center; font-size: 12px;
+  font-weight: 700; color: #9a9aa7; flex: 0 0 auto; }
+.pf-step.done .pf-step-n { background: #12351f; border-color: #12351f; color: #4ade80; }
+.pf-step.on .pf-step-n { background: #454299; border-color: #454299; color: #fff; }
+.pf-step-bar { flex: 1; height: 2px; background: #d4d7dd; margin: 0 10px; }
+.pf-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px;
+  border: 1px solid #c9ccd4; vertical-align: -2px; margin-right: 2px; }
+
+/* ── Classic surface panels (Tier 2) ──────────────────────── */
+details.pf-panel { background: #fff; border: 1px solid #dde0e5; border-radius: 12px;
+  margin-bottom: 12px; overflow: hidden; }
+details.pf-panel > summary { list-style: none; display: flex; align-items: center; gap: 9px;
+  padding: 14px 18px; font-weight: 700; font-size: 14px; cursor: pointer; }
+details.pf-panel > summary::-webkit-details-marker { display: none; }
+details.pf-panel .pf-panel-body { padding: 14px 18px 18px; border-top: 1px solid #eef0f3; }
+.pf-preview { border: 1px solid #dde0e5; border-radius: 10px; padding: 16px; background: #fff; overflow: auto; }

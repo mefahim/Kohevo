@@ -46,6 +46,15 @@
     }
 
     var apiPath = deriveApiPath();
+
+    // CSRF: the standard admin head emits <meta name="csrf">; the picker
+    // API verifies it on upload/update_meta. No meta -> no header (the API
+    // then rejects with 403 rather than silently accepting a forged POST).
+    function csrfHeaders() {
+        var m = document.querySelector('meta[name="csrf"]');
+        var tok = m ? m.getAttribute('content') || '' : '';
+        return tok ? { 'X-CSRF-TOKEN': tok } : {};
+    }
     var cacheByType = {};
     var cacheLoadedAt = {};
     var CACHE_TTL_MS = 60000;
@@ -209,6 +218,7 @@
                     fetch(apiPath + '?action=upload', {
                         method: 'POST',
                         credentials: 'same-origin',
+                        headers: csrfHeaders(),
                         body: fd
                     }).then(function (r) {
                         return r.json().then(function (d) {
@@ -302,6 +312,7 @@
         fetch(apiPath + '?action=update_meta', {
             method: 'POST',
             credentials: 'same-origin',
+            headers: csrfHeaders(),
             body: fd
         }).then(function (r) {
             return r.json();

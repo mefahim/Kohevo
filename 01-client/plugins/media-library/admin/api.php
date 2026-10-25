@@ -39,6 +39,11 @@ if ($action === 'list') {
 
 // 2. Upload from Picker
 if ($action === 'upload' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify()) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => __('security_check_failed', 'Security check failed.')]);
+        exit;
+    }
     $canUpload = Auth::can('media.upload') || Auth::isSuperAdmin();
     if (!$canUpload) {
         http_response_code(403);
@@ -102,6 +107,11 @@ if ($action === 'upload' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // 3. Update Metadata (Alt text, Title, Description)
 if ($action === 'update_meta' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify()) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => __('security_check_failed', 'Security check failed.')]);
+        exit;
+    }
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         http_response_code(400);
