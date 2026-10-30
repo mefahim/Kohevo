@@ -1,0 +1,3 @@
+RUNNER-STOPPED 2026-10-28 05:50 +06: runtime restart killed the step1 SSH runner (VM /tmp wiped, no log survived).
+Verified after restart: media NEVER ran (upload URLs 404), partials never ran — VPS state is clean, nothing duplicated.
+Relaunch is fully re-staged (workspace inputs, restart-proof runner) and waits only for the SSH password, which is never stored.
